@@ -46,26 +46,24 @@
     background-image: url("assets/menu_bg_portrait_round.png"); background-size: cover; background-position: center center; }
   @media (orientation: landscape) { #overlay .mBg { background-image: url("assets/menu_bg_land_mix.png"); } }
   /* animated neon palm sprites (screen-blend drops the black), gentle wind sway */
-  #overlay .mTree { position: absolute; bottom: 2%; z-index: 0; pointer-events: none; height: 34%; width: auto;
-    transform-origin: bottom center; filter: hue-rotate(135deg) saturate(1.15) brightness(1.08) drop-shadow(0 0 10px rgba(255,150,205,.6)); }
-  #overlay .mTree.l { left: -23%; animation: treeSwayL 5.6s ease-in-out infinite; }
-  #overlay .mTree.r { right: -23%; animation: treeSwayR 6.3s ease-in-out infinite; }
-  /* receding avenue: each further pair sits more inward, higher & smaller (with a bit less opacity for depth) */
-  #overlay .mTree.ml { left: -6%;  bottom: 4%; height: 26%; opacity: .92; animation: treeSwayL 6.9s ease-in-out infinite; }
-  #overlay .mTree.mr { right: -6%; bottom: 4%; height: 26%; opacity: .92; animation: treeSwayR 6s ease-in-out infinite; }
-  #overlay .mTree.fl { left: 6%;   bottom: 7%; height: 19%; opacity: .8;  animation: treeSwayL 7.6s ease-in-out infinite; }
-  #overlay .mTree.fr { right: 6%;  bottom: 7%; height: 19%; opacity: .8;  animation: treeSwayR 6.7s ease-in-out infinite; }
-  #overlay .mTree.f2l { left: 15%;  bottom: 10%; height: 14%; opacity: .66; animation: treeSwayL 8.3s ease-in-out infinite; }
-  #overlay .mTree.f2r { right: 15%; bottom: 10%; height: 14%; opacity: .66; animation: treeSwayR 7.4s ease-in-out infinite; }
-  @keyframes treeSwayL { 0%,100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.5deg); } }
-  @keyframes treeSwayR { 0%,100% { transform: scaleX(-1) rotate(-1.4deg); } 50% { transform: scaleX(-1) rotate(1.5deg); } }
+  #overlay .mTree { position: absolute; bottom: 2%; z-index: 0; pointer-events: none; height: 34%; width: auto; transform-origin: bottom center; filter: hue-rotate(135deg) saturate(1.15) brightness(1.08) drop-shadow(0 0 10px rgba(255,150,205,.6)); }
+  #overlay .mTree.l { left: -17%; bottom: 1%; height: 37%; animation: treeSwayL 5.6s ease-in-out infinite; }
+  #overlay .mTree.r { right: -17%; bottom: 1%; height: 37%; animation: treeSwayR 6.3s ease-in-out infinite; }
+  #overlay .mTree.ml { left: -11%; bottom: 4%; height: 28%; opacity: .95; animation: treeSwayL 6.9s ease-in-out infinite; }
+  #overlay .mTree.mr { right: -11%; bottom: 4%; height: 28%; opacity: .95; animation: treeSwayR 6s ease-in-out infinite; }
+  #overlay .mTree.fl { left: -6%;  bottom: 7%; height: 21%; opacity: .85; animation: treeSwayL 7.6s ease-in-out infinite; }
+  #overlay .mTree.fr { right: -6%; bottom: 7%; height: 21%; opacity: .85; animation: treeSwayR 6.7s ease-in-out infinite; }
+  #overlay .mTree.f2l { left: -2%; bottom: 10%; height: 15%; opacity: .72; animation: treeSwayL 8.3s ease-in-out infinite; }
+  #overlay .mTree.f2r { right: -2%; bottom: 10%; height: 15%; opacity: .72; animation: treeSwayR 7.4s ease-in-out infinite; }
   @media (orientation: landscape) {
     #overlay .mTree { height: 66%; }
-    #overlay .mTree.l { left: -6%; } #overlay .mTree.r { right: -6%; }
-    #overlay .mTree.ml { left: 8%;  bottom: 3%; height: 48%; } #overlay .mTree.mr { right: 8%;  bottom: 3%; height: 48%; }
-    #overlay .mTree.fl { left: 18%; bottom: 6%; height: 34%; } #overlay .mTree.fr { right: 18%; bottom: 6%; height: 34%; }
-    #overlay .mTree.f2l { left: 27%; bottom: 9%; height: 24%; } #overlay .mTree.f2r { right: 27%; bottom: 9%; height: 24%; }
+    #overlay .mTree.l { left: -5%; } #overlay .mTree.r { right: -5%; }
+    #overlay .mTree.ml { left: 2%;  bottom: 3%; height: 50%; } #overlay .mTree.mr { right: 2%;  bottom: 3%; height: 50%; }
+    #overlay .mTree.fl { left: 8%; bottom: 6%; height: 37%; } #overlay .mTree.fr { right: 8%; bottom: 6%; height: 37%; }
+    #overlay .mTree.f2l { left: 13%; bottom: 9%; height: 27%; } #overlay .mTree.f2r { right: 13%; bottom: 9%; height: 27%; }
   }
+  @keyframes treeSwayL { 0%,100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.5deg); } }
+  @keyframes treeSwayR { 0%,100% { transform: scaleX(-1) rotate(-1.4deg); } 50% { transform: scaleX(-1) rotate(1.5deg); } }
   @media (prefers-reduced-motion: reduce) {
     #overlay .mTree.l, #overlay .mTree.ml, #overlay .mTree.fl, #overlay .mTree.f2l { animation: none; }
     #overlay .mTree.r, #overlay .mTree.mr, #overlay .mTree.fr, #overlay .mTree.f2r { animation: none; transform: scaleX(-1); } }
@@ -700,14 +698,14 @@
   <canvas class="mSunViz" aria-hidden="true"></canvas>
   <div class="mSunFront" aria-hidden="true"></div>
   <div class="mVizLabel" aria-hidden="true"></div>
-  <img class="mTree f2l" src="assets/palm_solid.png" alt="" aria-hidden="true">
-  <img class="mTree f2r" src="assets/palm_solid.png" alt="" aria-hidden="true">
-  <img class="mTree fl" src="assets/palm_solid.png" alt="" aria-hidden="true">
-  <img class="mTree fr" src="assets/palm_solid.png" alt="" aria-hidden="true">
-  <img class="mTree ml" src="assets/palm_solid.png" alt="" aria-hidden="true">
-  <img class="mTree mr" src="assets/palm_solid.png" alt="" aria-hidden="true">
-  <img class="mTree l" src="assets/palm_solid.png" alt="" aria-hidden="true">
-  <img class="mTree r" src="assets/palm_solid.png" alt="" aria-hidden="true">
+  <img class="mTree f2l" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree f2r" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree fl" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree fr" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree ml" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree mr" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree l" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree r" src="assets/palm_lush.png" alt="" aria-hidden="true">
   <div class="mFog" aria-hidden="true"></div>
   <div class="mSparks" aria-hidden="true"></div>
   <div class="mHaze" aria-hidden="true"></div>
