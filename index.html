@@ -43,7 +43,8 @@
   #overlay { overflow: hidden; background: radial-gradient(130% 92% at 50% 2%, #241149 0%, #0d0726 44%, #050310 100%); }
   /* generated synthwave artwork background (replaces the CSS-built scene) */
   #overlay .mBg { position: absolute; inset: 0; z-index: 0; pointer-events: none;
-    background-image: url("assets/menu_bg_portrait_back.png"); background-size: cover; background-position: center center; }
+    background-image: url("assets/menu_bg_portrait_back.png"); background-size: cover; background-position: center center;
+    transform: scale(0.88); transform-origin: 50% 100%; }
   @media (orientation: landscape) { #overlay .mBg { background-image: url("assets/menu_bg_land_back.png"); } }
   /* the pulled-back bgs have their own small distant baked sun — hide the old cut-out disc + viz so they don't ghost over it */
   #overlay .mSunFront, #overlay .mSunViz { display: none !important; }
