@@ -50,19 +50,25 @@
     mix-blend-mode: screen; transform-origin: bottom center; filter: hue-rotate(135deg) saturate(1.05) brightness(1.15) drop-shadow(0 0 10px rgba(255,150,205,.6)); }
   #overlay .mTree.l { left: -23%; animation: treeSwayL 5.6s ease-in-out infinite; }
   #overlay .mTree.r { right: -23%; animation: treeSwayR 6.3s ease-in-out infinite; }
-  /* a second pair, a bit smaller & further in for depth */
-  #overlay .mTree.ml { left: -6%;  bottom: 4%; height: 26%; opacity: .9; animation: treeSwayL 6.9s ease-in-out infinite; }
-  #overlay .mTree.mr { right: -6%; bottom: 4%; height: 26%; opacity: .9; animation: treeSwayR 6s ease-in-out infinite; }
+  /* receding avenue: each further pair sits more inward, higher & smaller (with a bit less opacity for depth) */
+  #overlay .mTree.ml { left: -6%;  bottom: 4%; height: 26%; opacity: .92; animation: treeSwayL 6.9s ease-in-out infinite; }
+  #overlay .mTree.mr { right: -6%; bottom: 4%; height: 26%; opacity: .92; animation: treeSwayR 6s ease-in-out infinite; }
+  #overlay .mTree.fl { left: 6%;   bottom: 7%; height: 19%; opacity: .8;  animation: treeSwayL 7.6s ease-in-out infinite; }
+  #overlay .mTree.fr { right: 6%;  bottom: 7%; height: 19%; opacity: .8;  animation: treeSwayR 6.7s ease-in-out infinite; }
+  #overlay .mTree.f2l { left: 15%;  bottom: 10%; height: 14%; opacity: .66; animation: treeSwayL 8.3s ease-in-out infinite; }
+  #overlay .mTree.f2r { right: 15%; bottom: 10%; height: 14%; opacity: .66; animation: treeSwayR 7.4s ease-in-out infinite; }
   @keyframes treeSwayL { 0%,100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.5deg); } }
   @keyframes treeSwayR { 0%,100% { transform: scaleX(-1) rotate(-1.4deg); } 50% { transform: scaleX(-1) rotate(1.5deg); } }
   @media (orientation: landscape) {
     #overlay .mTree { height: 66%; }
     #overlay .mTree.l { left: -6%; } #overlay .mTree.r { right: -6%; }
     #overlay .mTree.ml { left: 8%;  bottom: 3%; height: 48%; } #overlay .mTree.mr { right: 8%;  bottom: 3%; height: 48%; }
+    #overlay .mTree.fl { left: 18%; bottom: 6%; height: 34%; } #overlay .mTree.fr { right: 18%; bottom: 6%; height: 34%; }
+    #overlay .mTree.f2l { left: 27%; bottom: 9%; height: 24%; } #overlay .mTree.f2r { right: 27%; bottom: 9%; height: 24%; }
   }
   @media (prefers-reduced-motion: reduce) {
-    #overlay .mTree.l, #overlay .mTree.ml { animation: none; }
-    #overlay .mTree.r, #overlay .mTree.mr { animation: none; transform: scaleX(-1); } }
+    #overlay .mTree.l, #overlay .mTree.ml, #overlay .mTree.fl, #overlay .mTree.f2l { animation: none; }
+    #overlay .mTree.r, #overlay .mTree.mr, #overlay .mTree.fr, #overlay .mTree.f2r { animation: none; transform: scaleX(-1); } }
   /* hide the old hand-built CSS scene elements now that we use the generated art */
   #overlay .mHaze, #overlay .mStars, #overlay .mDust, #overlay .mSun, #overlay .mCity,
   #overlay .mGround, #overlay .mGrid, #overlay .mHorizon, #overlay .mPalm { display: none !important; }
@@ -694,6 +700,10 @@
   <canvas class="mSunViz" aria-hidden="true"></canvas>
   <div class="mSunFront" aria-hidden="true"></div>
   <div class="mVizLabel" aria-hidden="true"></div>
+  <img class="mTree f2l" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree f2r" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree fl" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree fr" src="assets/palm_lush.png" alt="" aria-hidden="true">
   <img class="mTree ml" src="assets/palm_lush.png" alt="" aria-hidden="true">
   <img class="mTree mr" src="assets/palm_lush.png" alt="" aria-hidden="true">
   <img class="mTree l" src="assets/palm_lush.png" alt="" aria-hidden="true">
