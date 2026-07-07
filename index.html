@@ -58,18 +58,30 @@
   #overlay .mTree.fr { right: -10%; bottom: 9%; height: 26%; opacity: .85; animation: treeSwayR 6.7s ease-in-out infinite; }
   #overlay .mTree.f2l { left: -2%; bottom: 13%; height: 18%; opacity: .72; animation: treeSwayL 8.3s ease-in-out infinite; }
   #overlay .mTree.f2r { right: -2%; bottom: 13%; height: 18%; opacity: .72; animation: treeSwayR 7.4s ease-in-out infinite; }
+  #overlay .mTree.f3l { left: 5%;  bottom: 18%; height: 13%; opacity: .66; animation: treeSwayL 7s ease-in-out infinite; }
+  #overlay .mTree.f3r { right: 5%; bottom: 18%; height: 13%; opacity: .66; animation: treeSwayR 6.4s ease-in-out infinite; }
+  #overlay .mTree.f4l { left: 12%; bottom: 23%; height: 9.5%; opacity: .58; animation: treeSwayL 7.9s ease-in-out infinite; }
+  #overlay .mTree.f4r { right: 12%; bottom: 23%; height: 9.5%; opacity: .58; animation: treeSwayR 6.9s ease-in-out infinite; }
+  #overlay .mTree.f5l { left: 18%; bottom: 27%; height: 7%; opacity: .5; animation: treeSwayL 8.6s ease-in-out infinite; }
+  #overlay .mTree.f5r { right: 18%; bottom: 27%; height: 7%; opacity: .5; animation: treeSwayR 7.7s ease-in-out infinite; }
+  #overlay .mTree.f6l { left: 24%; bottom: 30%; height: 5.5%; opacity: .42; animation: treeSwayL 9s ease-in-out infinite; }
+  #overlay .mTree.f6r { right: 24%; bottom: 30%; height: 5.5%; opacity: .42; animation: treeSwayR 8.2s ease-in-out infinite; }
   @media (orientation: landscape) {
     #overlay .mTree { height: 66%; }
     #overlay .mTree.l { left: -23%; bottom: 0%;  height: 70%; } #overlay .mTree.r { right: -23%; bottom: 0%;  height: 70%; }
     #overlay .mTree.ml { left: -8%; bottom: 8%;  height: 50%; } #overlay .mTree.mr { right: -8%; bottom: 8%;  height: 50%; }
     #overlay .mTree.fl { left: 4%;  bottom: 14%; height: 36%; } #overlay .mTree.fr { right: 4%;  bottom: 14%; height: 36%; }
     #overlay .mTree.f2l { left: 14%; bottom: 19%; height: 26%; } #overlay .mTree.f2r { right: 14%; bottom: 19%; height: 26%; }
+    #overlay .mTree.f3l { left: 21%; bottom: 24%; height: 19%; } #overlay .mTree.f3r { right: 21%; bottom: 24%; height: 19%; }
+    #overlay .mTree.f4l { left: 28%; bottom: 29%; height: 14%; } #overlay .mTree.f4r { right: 28%; bottom: 29%; height: 14%; }
+    #overlay .mTree.f5l { left: 34%; bottom: 34%; height: 10%; } #overlay .mTree.f5r { right: 34%; bottom: 34%; height: 10%; }
+    #overlay .mTree.f6l { left: 39%; bottom: 38%; height: 7.5%; } #overlay .mTree.f6r { right: 39%; bottom: 38%; height: 7.5%; }
   }
   @keyframes treeSwayL { 0%,100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.5deg); } }
   @keyframes treeSwayR { 0%,100% { transform: scaleX(-1) rotate(-1.4deg); } 50% { transform: scaleX(-1) rotate(1.5deg); } }
   @media (prefers-reduced-motion: reduce) {
-    #overlay .mTree.l, #overlay .mTree.ml, #overlay .mTree.fl, #overlay .mTree.f2l { animation: none; }
-    #overlay .mTree.r, #overlay .mTree.mr, #overlay .mTree.fr, #overlay .mTree.f2r { animation: none; transform: scaleX(-1); } }
+    #overlay .mTree.l, #overlay .mTree.ml, #overlay .mTree.fl, #overlay .mTree.f2l, #overlay .mTree.f3l, #overlay .mTree.f4l, #overlay .mTree.f5l, #overlay .mTree.f6l { animation: none; }
+    #overlay .mTree.r, #overlay .mTree.mr, #overlay .mTree.fr, #overlay .mTree.f2r, #overlay .mTree.f3r, #overlay .mTree.f4r, #overlay .mTree.f5r, #overlay .mTree.f6r { animation: none; transform: scaleX(-1); } }
   /* hide the old hand-built CSS scene elements now that we use the generated art */
   #overlay .mHaze, #overlay .mStars, #overlay .mDust, #overlay .mSun, #overlay .mCity,
   #overlay .mGround, #overlay .mGrid, #overlay .mHorizon, #overlay .mPalm { display: none !important; }
@@ -701,6 +713,14 @@
   <canvas class="mSunViz" aria-hidden="true"></canvas>
   <div class="mSunFront" aria-hidden="true"></div>
   <div class="mVizLabel" aria-hidden="true"></div>
+  <img class="mTree f6l" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree f6r" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree f5l" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree f5r" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree f4l" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree f4r" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree f3l" src="assets/palm_lush.png" alt="" aria-hidden="true">
+  <img class="mTree f3r" src="assets/palm_lush.png" alt="" aria-hidden="true">
   <img class="mTree f2l" src="assets/palm_lush.png" alt="" aria-hidden="true">
   <img class="mTree f2r" src="assets/palm_lush.png" alt="" aria-hidden="true">
   <img class="mTree fl" src="assets/palm_lush.png" alt="" aria-hidden="true">
