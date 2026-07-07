@@ -48,20 +48,20 @@
   /* animated neon palm sprites (screen-blend drops the black), gentle wind sway */
   #overlay .mTree { position: absolute; bottom: 2%; z-index: 0; pointer-events: none; height: 34%; width: auto; transform-origin: bottom center; filter: hue-rotate(135deg) saturate(1.15) brightness(1.08) drop-shadow(0 0 10px rgba(255,150,205,.6)); }
   /* spread boulevard: big outer pair, then stepping inward/up as a receding avenue down both sides */
-  #overlay .mTree.l { left: -21%; bottom: 0%; height: 40%; animation: treeSwayL 5.6s ease-in-out infinite; }
-  #overlay .mTree.r { right: -21%; bottom: 0%; height: 40%; animation: treeSwayR 6.3s ease-in-out infinite; }
-  #overlay .mTree.ml { left: -12%; bottom: 5%; height: 29%; opacity: .95; animation: treeSwayL 6.9s ease-in-out infinite; }
-  #overlay .mTree.mr { right: -12%; bottom: 5%; height: 29%; opacity: .95; animation: treeSwayR 6s ease-in-out infinite; }
-  #overlay .mTree.fl { left: -4%;  bottom: 9%; height: 21%; opacity: .85; animation: treeSwayL 7.6s ease-in-out infinite; }
-  #overlay .mTree.fr { right: -4%; bottom: 9%; height: 21%; opacity: .85; animation: treeSwayR 6.7s ease-in-out infinite; }
-  #overlay .mTree.f2l { left: 2%; bottom: 12%; height: 15%; opacity: .72; animation: treeSwayL 8.3s ease-in-out infinite; }
-  #overlay .mTree.f2r { right: 2%; bottom: 12%; height: 15%; opacity: .72; animation: treeSwayR 7.4s ease-in-out infinite; }
+  #overlay .mTree.l { left: -24%; bottom: 0%; height: 40%; animation: treeSwayL 5.6s ease-in-out infinite; }
+  #overlay .mTree.r { right: -24%; bottom: 0%; height: 40%; animation: treeSwayR 6.3s ease-in-out infinite; }
+  #overlay .mTree.ml { left: -15%; bottom: 5%; height: 29%; opacity: .95; animation: treeSwayL 6.9s ease-in-out infinite; }
+  #overlay .mTree.mr { right: -15%; bottom: 5%; height: 29%; opacity: .95; animation: treeSwayR 6s ease-in-out infinite; }
+  #overlay .mTree.fl { left: -7%;  bottom: 9%; height: 21%; opacity: .85; animation: treeSwayL 7.6s ease-in-out infinite; }
+  #overlay .mTree.fr { right: -7%; bottom: 9%; height: 21%; opacity: .85; animation: treeSwayR 6.7s ease-in-out infinite; }
+  #overlay .mTree.f2l { left: -1%; bottom: 12%; height: 15%; opacity: .72; animation: treeSwayL 8.3s ease-in-out infinite; }
+  #overlay .mTree.f2r { right: -1%; bottom: 12%; height: 15%; opacity: .72; animation: treeSwayR 7.4s ease-in-out infinite; }
   @media (orientation: landscape) {
     #overlay .mTree { height: 66%; }
-    #overlay .mTree.l { left: -12%; bottom: 0%;  height: 70%; } #overlay .mTree.r { right: -12%; bottom: 0%;  height: 70%; }
-    #overlay .mTree.ml { left: 3%;  bottom: 8%;  height: 50%; } #overlay .mTree.mr { right: 3%;  bottom: 8%;  height: 50%; }
-    #overlay .mTree.fl { left: 15%; bottom: 14%; height: 36%; } #overlay .mTree.fr { right: 15%; bottom: 14%; height: 36%; }
-    #overlay .mTree.f2l { left: 25%; bottom: 19%; height: 26%; } #overlay .mTree.f2r { right: 25%; bottom: 19%; height: 26%; }
+    #overlay .mTree.l { left: -16%; bottom: 0%;  height: 70%; } #overlay .mTree.r { right: -16%; bottom: 0%;  height: 70%; }
+    #overlay .mTree.ml { left: -1%; bottom: 8%;  height: 50%; } #overlay .mTree.mr { right: -1%; bottom: 8%;  height: 50%; }
+    #overlay .mTree.fl { left: 11%; bottom: 14%; height: 36%; } #overlay .mTree.fr { right: 11%; bottom: 14%; height: 36%; }
+    #overlay .mTree.f2l { left: 21%; bottom: 19%; height: 26%; } #overlay .mTree.f2r { right: 21%; bottom: 19%; height: 26%; }
   }
   @keyframes treeSwayL { 0%,100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.5deg); } }
   @keyframes treeSwayR { 0%,100% { transform: scaleX(-1) rotate(-1.4deg); } 50% { transform: scaleX(-1) rotate(1.5deg); } }
