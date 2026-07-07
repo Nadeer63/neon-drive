@@ -43,8 +43,8 @@
   #overlay { overflow: hidden; background: radial-gradient(130% 92% at 50% 2%, #241149 0%, #0d0726 44%, #050310 100%); }
   /* generated synthwave artwork background (replaces the CSS-built scene) */
   #overlay .mBg { position: absolute; inset: 0; z-index: 0; pointer-events: none;
-    background-image: url("assets/menu_bg_portrait_round.png"); background-size: cover; background-position: center center; }
-  @media (orientation: landscape) { #overlay .mBg { background-image: url("assets/menu_bg_land_mix.png"); } }
+    background-image: url("assets/menu_bg_portrait_deep.png"); background-size: cover; background-position: center center; }
+  @media (orientation: landscape) { #overlay .mBg { background-image: url("assets/menu_bg_land_deep.png"); } }
   /* animated neon palm sprites (screen-blend drops the black), gentle wind sway */
   #overlay .mTree { position: absolute; bottom: 2%; z-index: 0; pointer-events: none; height: 34%; width: auto; transform-origin: bottom center; filter: hue-rotate(135deg) saturate(1.15) brightness(1.08) drop-shadow(0 0 10px rgba(255,150,205,.6)); }
   /* spread boulevard: big outer pair, then stepping inward/up as a receding avenue down both sides */
@@ -106,7 +106,8 @@
   /* the sun disc cut from the bg, layered ON TOP of the bars so they radiate from BEHIND the sun (positioned by JS) */
   #overlay .mSunFront { position: absolute; z-index: 0; pointer-events: none; background-size: contain; background-repeat: no-repeat; background-position: center;
     background-image: url("assets/sun_portrait.png"); }
-  @media (orientation: landscape) { #overlay .mSunFront { background-image: url("assets/sun_land.png"); } }
+  /* deep-composition bgs have their own small baked distant sun — hide the old cut-out disc + viz so they don't ghost over it */
+  #overlay .mSunFront, #overlay .mSunViz { display: none !important; }
   /* toast label showing the current sun-visualizer style (tap the sun to cycle) */
   #overlay .mVizLabel { position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 70px); transform: translateX(-50%);
     z-index: 6; pointer-events: none; font: 700 12px/1 'Aldrich', sans-serif; letter-spacing: 2.5px; color: #eaf6ff; white-space: nowrap;
