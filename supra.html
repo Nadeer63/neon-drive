@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>DRAWING — TOYOTA SUPRA</title>
+<style>
+  html,body{margin:0;height:100%;background:radial-gradient(ellipse at 50% 40%,#27073f,#06010f 70%);
+    font-family:'Courier New',monospace;color:#bfe6ff;overflow:hidden;}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  h1{letter-spacing:5px;color:#00f0ff;text-shadow:0 0 12px #00f0ff;margin:0 0 2px;font-size:17px;}
+  #sub{font-size:11px;letter-spacing:2px;color:#ff7ad6;margin-bottom:10px;}
+  canvas{width:min(94vw,820px);height:auto;}
+  #step{margin-top:10px;font-size:12px;letter-spacing:2px;color:#7af6c0;min-height:16px;}
+  button{margin-top:12px;background:rgba(10,5,25,.7);color:#00f0ff;border:1px solid rgba(0,240,255,.5);
+    border-radius:10px;padding:8px 18px;letter-spacing:2px;font-family:inherit;cursor:pointer;box-shadow:0 0 12px rgba(0,240,255,.3);}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <h1>TOYOTA SUPRA · MK4</h1>
+  <div id="sub">drawn live, piece by piece</div>
+  <canvas id="cv" width="900" height="520"></canvas>
+  <div id="step">…</div>
+  <button id="again">↻ DRAW AGAIN</button>
+</div>
+<script>
+const cv=document.getElementById('cv'), g=cv.getContext('2d'), W=cv.width, H=cv.height;
+const CY='#00f0ff', MG='#ff2bd6', stepEl=document.getElementById('step');
+
+// ---- the Supra body silhouette (side profile, facing LEFT) ----
+function bodyPath(){
+  g.beginPath();
+  g.moveTo(70,322);                                   // front bumper bottom
+  g.bezierCurveTo(58,300, 70,286, 110,278);           // nose
+  g.bezierCurveTo(190,262, 250,250, 320,243);         // long hood (low, sloping)
+  g.bezierCurveTo(352,238, 372,224, 404,186);         // cowl -> windshield base
+  g.bezierCurveTo(430,156, 470,140, 540,138);         // windshield to roof peak
+  g.bezierCurveTo(610,136, 672,150, 726,196);         // roof -> fastback down
+  g.bezierCurveTo(762,228, 792,236, 838,240);         // rear deck
+  g.bezierCurveTo(862,242, 872,258, 872,286);         // rear corner
+  g.lineTo(872,322);                                  // rear bumper
+  g.lineTo(70,322); g.closePath();
+}
+const PIECES=[
+  ['stage', ()=>{                                     // ground glow + ring
+    const rg=g.createRadialGradient(W/2,396,8,W/2,396,360); rg.addColorStop(0,'rgba(255,43,214,.22)'); rg.addColorStop(1,'rgba(255,43,214,0)');
+    g.fillStyle=rg; g.fillRect(0,0,W,H);
+    g.strokeStyle='rgba(0,240,255,.5)'; g.lineWidth=2; g.shadowColor=CY; g.shadowBlur=14;
+    g.beginPath(); g.ellipse(W/2,398,300,40,0,0,7); g.stroke(); g.shadowBlur=0;
+  }],
+  ['body shell', ()=>{
+    bodyPath();
+    const bg=g.createLinearGradient(0,130,0,322);
+    bg.addColorStop(0,'#f3f6ff'); bg.addColorStop(.45,'#cfd8ef'); bg.addColorStop(1,'#8d9bc4');
+    g.fillStyle=bg; g.fill();
+  }],
+  ['neon outline', ()=>{
+    bodyPath(); g.lineJoin='round'; g.shadowColor=CY; g.shadowBlur=16; g.strokeStyle=CY; g.lineWidth=3; g.stroke();
+    g.shadowColor=MG; g.shadowBlur=10; g.strokeStyle='rgba(255,43,214,.5)'; g.lineWidth=1.4; g.stroke(); g.shadowBlur=0;
+  }],
+  ['greenhouse', ()=>{                                // windows / cabin glass
+    g.fillStyle='#10182e';
+    g.beginPath();
+    g.moveTo(398,196); g.bezierCurveTo(430,166, 470,152, 536,150);
+    g.bezierCurveTo(600,149, 654,160, 700,196);
+    g.lineTo(700,200); g.bezierCurveTo(640,200, 470,202, 410,206); g.closePath(); g.fill();
+    g.fillStyle='rgba(120,200,255,.10)';                // glass sheen
+    g.beginPath(); g.moveTo(420,194); g.lineTo(560,158); g.lineTo(540,168); g.lineTo(430,200); g.closePath(); g.fill();
+    g.strokeStyle='#0a0f1e'; g.lineWidth=3; g.beginPath(); g.moveTo(540,150); g.lineTo(548,200); g.stroke(); // B-pillar
+  }],
+  ['door + vents', ()=>{
+    g.strokeStyle='rgba(20,30,55,.7)'; g.lineWidth=2;
+    g.beginPath(); g.moveTo(548,205); g.lineTo(560,300); g.stroke();             // door cut
+    g.beginPath(); g.moveTo(404,250); g.lineTo(404,300); g.stroke();
+    g.strokeStyle='rgba(20,30,55,.5)'; g.lineWidth=2;
+    g.beginPath(); g.moveTo(120,300); g.lineTo(840,300); g.stroke();             // rocker character line
+    g.fillStyle='#22304f';                                                       // front side vent
+    g.beginPath(); g.moveTo(360,270); g.lineTo(392,266); g.lineTo(392,282); g.lineTo(360,286); g.closePath(); g.fill();
+    g.fillStyle='#1a2742';                                                        // mirror
+    g.beginPath(); g.moveTo(386,212); g.lineTo(404,206); g.lineTo(404,224); g.lineTo(388,226); g.closePath(); g.fill();
+  }],
+  ['rear wing', ()=>{                                  // the iconic basket-handle spoiler, on tall uprights from the rear deck
+    g.fillStyle='#9aa6c6';
+    g.fillRect(742,188,12,54); g.fillRect(820,188,12,54);                          // uprights down to the deck
+    g.fillStyle='#cdd6ec'; g.strokeStyle=CY; g.lineWidth=2.5; g.shadowColor=CY; g.shadowBlur=12;
+    g.beginPath(); g.roundRect(712,176,148,16,8); g.fill(); g.stroke();            // wing blade over the rear deck
+    g.shadowBlur=0;
+  }],
+  ['front wheel', ()=>{ wheel(228,322); }],
+  ['rear wheel', ()=>{ wheel(720,322); }],
+  ['headlight', ()=>{
+    g.save(); g.shadowColor='#bfeaff'; g.shadowBlur=18; g.fillStyle='#eaf7ff';
+    g.beginPath(); g.moveTo(76,288); g.lineTo(150,280); g.lineTo(150,300); g.lineTo(80,306); g.closePath(); g.fill(); g.restore();
+  }],
+  ['tail lights', ()=>{
+    g.save(); g.shadowColor='#ff3b5c'; g.shadowBlur=18; g.fillStyle='#ff4d68';
+    g.beginPath(); g.roundRect(820,276,48,20,5); g.fill();
+    g.fillStyle='#ff90a3'; g.fillRect(828,281,8,10); g.fillRect(846,281,8,10); g.restore();
+  }],
+  ['underglow', ()=>{
+    const ug=g.createLinearGradient(0,322,0,350); ug.addColorStop(0,'rgba(255,43,214,.55)'); ug.addColorStop(1,'rgba(255,43,214,0)');
+    g.fillStyle=ug; g.fillRect(120,322,720,30);
+  }],
+];
+function wheel(cx, by){
+  const r=42, cy=by-6;
+  g.save(); g.shadowColor=CY; g.shadowBlur=8;
+  g.fillStyle='#0c0f18'; g.beginPath(); g.arc(cx,cy,r,0,7); g.fill();             // tyre
+  g.shadowBlur=0;
+  g.fillStyle='#cfd6e6'; g.beginPath(); g.arc(cx,cy,r*0.62,0,7); g.fill();        // rim
+  g.fillStyle='#0c0f18'; g.beginPath(); g.arc(cx,cy,r*0.18,0,7); g.fill();        // hub
+  g.strokeStyle='#7e8aa8'; g.lineWidth=4;                                          // 5 spokes
+  for(let i=0;i<5;i++){ const a=i/5*Math.PI*2; g.beginPath(); g.moveTo(cx,cy); g.lineTo(cx+Math.cos(a)*r*0.58, cy+Math.sin(a)*r*0.58); g.stroke(); }
+  g.restore();
+}
+let reveal=0, t=0;
+function frame(){
+  g.clearRect(0,0,W,H);
+  for(let i=0;i<Math.min(reveal,PIECES.length);i++) PIECES[i][1]();
+  if(reveal<PIECES.length){ t++; if(t>=22){ t=0; stepEl.textContent='✎ '+PIECES[reveal][0]; reveal++; } }
+  else stepEl.textContent='✓ done — Toyota Supra';
+  requestAnimationFrame(frame);
+}
+function start(){ reveal=0; t=0; }
+document.getElementById('again').addEventListener('click', start);
+start(); frame();
+</script>
+</body>
+</html>

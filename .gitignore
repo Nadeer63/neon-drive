@@ -1,0 +1,5 @@
+secret/
+*.blend
+IMG_*.PNG
+.DS_Store
+node_modules/

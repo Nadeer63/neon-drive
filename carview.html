@@ -1,0 +1,153 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>CAR INSPECTOR</title>
+<style>
+  html,body{margin:0;min-height:100%;background:radial-gradient(ellipse at 50% 35%,#1a0633,#05010f 70%);
+    font-family:'Courier New',monospace;color:#bfe6ff;touch-action:pan-y;}
+  #wrap{display:flex;flex-direction:column;align-items:center;padding:12px 0 40px;}
+  h1{letter-spacing:5px;color:#00f0ff;text-shadow:0 0 12px #00f0ff;margin:0 0 4px;font-size:17px;}
+  #sub{font-size:11px;letter-spacing:2px;color:#ff7ad6;margin-bottom:8px;}
+  canvas#cv{width:min(92vw,520px);height:auto;cursor:grab;}
+  #ctrls{display:flex;align-items:center;gap:16px;margin-top:10px;}
+  #ctrls button{width:54px;height:44px;font-size:20px;border-radius:10px;cursor:pointer;
+    background:rgba(10,5,25,.7);color:#00f0ff;border:1px solid rgba(0,240,255,.5);box-shadow:0 0 12px rgba(0,240,255,.3);}
+  #frameLbl{font-size:16px;letter-spacing:2px;color:#fff;min-width:150px;text-align:center;}
+  #frameLbl b{color:#ffd93b;font-size:22px;}
+  #stamp{font-size:11px;letter-spacing:1px;color:#7af6c0;margin-top:8px;}
+  #piecesLabel{margin:16px 0 8px;font-size:11px;letter-spacing:3px;color:#8aa;}
+  #pieces{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:96vw;}
+  .pc{width:88px;text-align:center;cursor:pointer;border-radius:8px;padding:2px;}
+  .pc.sel{outline:2px solid #ffd93b;box-shadow:0 0 12px rgba(255,217,59,.5);}
+  .pc img{width:84px;height:62px;object-fit:contain;background:#0d0420;border:1px solid rgba(0,240,255,.25);border-radius:6px;}
+  .pc .num{font-size:14px;font-weight:bold;color:#ffd93b;margin-top:2px;}
+  .pc .deg{font-size:9px;color:#9ad;}
+  #paintLabel{margin:16px 0 8px;font-size:11px;letter-spacing:3px;color:#8aa;}
+  #colors{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:96vw;}
+  .sw{width:36px;height:36px;border-radius:50%;cursor:pointer;border:2px solid rgba(255,255,255,.25);
+    box-shadow:0 0 8px rgba(0,0,0,.5);transition:transform .1s;padding:0;}
+  .sw:hover{transform:scale(1.08);}
+  .sw.sel{border-color:#ffd93b;box-shadow:0 0 14px rgba(255,217,59,.8);transform:scale(1.15);}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <h1>CAR INSPECTOR</h1>
+  <div id="sub">no auto-spin · step through each numbered frame · tap a thumbnail to jump</div>
+  <canvas id="cv" width="900" height="560"></canvas>
+  <div id="ctrls"><button id="prev">◄</button><div id="frameLbl">FRAME <b>0</b> · 0°</div><button id="next">►</button></div>
+  <div id="paintLabel">▸ PAINT — tap a colour</div>
+  <div id="colors"></div>
+  <div id="stamp">…</div>
+  <div id="piecesLabel">▸ ALL FRAMES (tell me the number that's wrong)</div>
+  <div id="pieces"></div>
+</div>
+<script>
+const COUNT = 360, STEP = 1;                       // 360 frames, 1° each
+// DISPLAY ORDER: #1 = the FRONT. spot d (0-based) maps to the underlying file index.
+// (front is file COUNT/2; rotate from there, wrapping around)
+function fileOf(d){ return ((d + COUNT/2) % COUNT + COUNT) % COUNT; }
+function pose(d){ d=((d%COUNT)+COUNT)%COUNT;
+  if(d===0) return 'FRONT'; if(d===COUNT/4) return 'SIDE ▶'; if(d===COUNT/2) return 'REAR'; if(d===COUNT*3/4) return '◀ SIDE';
+  return (d*STEP)+'° from front'; }
+let imgs = {}, cur = 0, stampTime='—';
+// ---- paint / recolour (same multiply-tint the game uses) ----
+const PALETTE = ['#ffffff', '#ff2bd6', '#00f0ff', '#b026ff', '#ff5e00', '#00ff9d', '#ffd21a',
+  '#ff2a4d', '#2f6bff', '#16d4c6', '#ff7a1a', '#a3ff2b', '#ff4fa3', '#8a93a8'];   // #ffffff = original white
+let curColor = '#ffffff';
+const _tint = {}, _frameMask = {};
+const paintMasks = [0,1,2,3].map(i => { const im=new Image(); im.src='cars/paintmask'+i+'.png'; return im; });  // full-res body masks
+const MASK_PER = 90, MASK_COLS = 10, MASK_ROWS = 9;
+function frameMaskFor(idx, w, h){
+  const key = idx+'|'+w+'|'+h; if (_frameMask[key]) return _frameMask[key];
+  const pm = paintMasks[(idx/MASK_PER)|0], local = idx%MASK_PER;
+  if (!pm || !pm.complete || !pm.naturalWidth) return null;
+  const cw = pm.naturalWidth/MASK_COLS, ch = pm.naturalHeight/MASK_ROWS;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.drawImage(pm, (local%MASK_COLS)*cw, ((local/MASK_COLS)|0)*ch, cw, ch, 0, 0, w, h);
+  return (_frameMask[key]=c);   // mask baked into PNG alpha
+}
+function tintedCar(img, color){
+  if (!color || color === '#ffffff') return img;                 // original
+  const key = img.src + '|' + color; if (_tint[key]) return _tint[key];
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const m = /supt_(\d+)\.png/.exec(img.src); const mask = m ? frameMaskFor(+m[1], w, h) : null;
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  if (!mask){ x.drawImage(img,0,0); x.globalCompositeOperation='multiply'; x.fillStyle=color; x.fillRect(0,0,w,h);
+    x.globalCompositeOperation='destination-in'; x.drawImage(img,0,0); return c; }
+  const tb = document.createElement('canvas'); tb.width=w; tb.height=h; const tg=tb.getContext('2d');
+  tg.drawImage(img,0,0); tg.globalCompositeOperation='destination-in'; tg.drawImage(mask,0,0);
+  tg.globalCompositeOperation='multiply'; tg.fillStyle=color; tg.fillRect(0,0,w,h);
+  tg.globalCompositeOperation='destination-in'; tg.drawImage(mask,0,0);
+  x.drawImage(img,0,0); x.globalCompositeOperation='destination-out'; x.drawImage(mask,0,0);
+  x.globalCompositeOperation='source-over'; x.drawImage(tb,0,0);
+  _tint[key]=c; return c;
+}
+function buildSwatches(){
+  const box = document.getElementById('colors');
+  PALETTE.forEach(col => {
+    const b = document.createElement('button');
+    b.className = 'sw' + (col === curColor ? ' sel' : '');
+    b.style.background = (col === '#ffffff') ? 'linear-gradient(135deg,#fff,#c8d0e6)' : col;
+    b.title = (col === '#ffffff') ? 'original' : col;
+    b.onclick = () => { curColor = col;
+      document.querySelectorAll('.sw').forEach(s => s.classList.remove('sel')); b.classList.add('sel'); };
+    box.appendChild(b);
+  });
+}
+buildSwatches();
+function pad2(n){return (n<10?'0':'')+n;}
+function setStamp(){ document.getElementById('stamp').textContent='⟳ updated '+stampTime+'  ·  '+Object.keys(imgs).length+'/'+COUNT+' frames loaded'; }
+function loadFrames(){
+  const t=Date.now();
+  for(let i=0;i<COUNT;i++){ const im=new Image(), key=i; im.onload=()=>{ imgs[key]=im; refreshPieces(); }; im.src='cars/supt_'+pad2(i)+'.png?t='+t; }
+  const d=new Date(); stampTime=[d.getHours(),d.getMinutes(),d.getSeconds()].map(n=>(n<10?'0':'')+n).join(':'); setStamp();
+}
+function refreshPieces(){
+  const box=document.getElementById('pieces'); box.innerHTML='';
+  for(let d=0;d<COUNT;d++){ const f=fileOf(d); if(imgs[f]){
+    const el=document.createElement('div'); el.className='pc'+(d===cur?' sel':''); el.dataset.d=d;
+    el.innerHTML='<img src="'+imgs[f].src+'"><div class="num">'+(d+1)+'</div><div class="deg">'+pose(d)+'</div>';
+    el.onclick=()=>select(d); box.appendChild(el);
+  } }
+  setStamp();
+}
+function select(d){ cur=((d%COUNT)+COUNT)%COUNT;
+  document.getElementById('frameLbl').innerHTML='FRAME <b>'+(cur+1)+'</b> · '+pose(cur);
+  document.querySelectorAll('.pc').forEach(p=>p.classList.toggle('sel', +p.dataset.d===cur));
+}
+loadFrames();
+setInterval(loadFrames, 2500);
+
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+let dragging=false, lastX=0, acc=0;
+cv.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;acc=0;cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing';});
+cv.addEventListener('pointermove',e=>{ if(!dragging)return; acc+=(e.clientX-lastX); lastX=e.clientX;
+  const stepPx=cv.getBoundingClientRect().width/COUNT;
+  while(acc>stepPx){ acc-=stepPx; select(cur+1); } while(acc<-stepPx){ acc+=stepPx; select(cur-1); } });
+cv.addEventListener('pointerup',()=>{dragging=false;cv.style.cursor='grab';});
+document.getElementById('prev').onclick=()=>select(cur-1);
+document.getElementById('next').onclick=()=>select(cur+1);
+addEventListener('keydown',e=>{ if(e.key==='ArrowLeft')select(cur-1); if(e.key==='ArrowRight')select(cur+1); });
+
+function draw(){
+  const W=cv.width,H=cv.height; g.clearRect(0,0,W,H);
+  // flat ground reference line (so you can judge how each car sits, without the ring float illusion)
+  g.strokeStyle='rgba(0,240,255,.25)'; g.lineWidth=2;
+  g.beginPath(); g.moveTo(W*0.08, H*0.845); g.lineTo(W*0.92, H*0.845); g.stroke();
+  const im=imgs[fileOf(cur)];
+  if(im){ const scale=W/900, dw=im.naturalWidth*scale, dh=im.naturalHeight*scale, dx=(W-dw)/2, dy=H*0.84-dh;
+    g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high'; g.drawImage(tintedCar(im,curColor),dx,dy,dw,dh); }
+  // big 1-based frame number + pose in the corner
+  g.fillStyle='#ffd93b'; g.font='bold 46px "Courier New",monospace'; g.textAlign='left';
+  g.shadowColor='#ffd93b'; g.shadowBlur=12; g.fillText('#'+(cur+1), 22, 56); g.shadowBlur=0;
+  g.font='bold 16px "Courier New",monospace'; g.fillStyle='#8ad'; g.fillText(pose(cur), 24, 78);
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>
