@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783477494";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783478276";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -46,46 +46,29 @@ window.__B="1783477494";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   #overlay { overflow: hidden; background: radial-gradient(130% 92% at 50% 2%, #241149 0%, #0d0726 44%, #050310 100%); }
   /* generated synthwave artwork background (replaces the CSS-built scene) */
   #overlay .mBg { position: absolute; inset: 0; z-index: 0; pointer-events: none;
-    background-image: url("assets/menu_bg_portrait_palms.png"); background-size: cover; background-position: center center; }
-  @media (orientation: landscape) { #overlay .mBg { background-image: url("assets/menu_bg_land_palms.png"); } }
+    background-image: url("assets/menu_bg_portrait_back2.png"); background-size: cover; background-position: center center; }
+  @media (orientation: landscape) { #overlay .mBg { background-image: url("assets/menu_bg_land_back2.png"); } }
   /* the pulled-back bgs have their own small distant baked sun — hide the old cut-out disc + viz so they don't ghost over it */
   #overlay .mSunFront, #overlay .mSunViz { display: none !important; }
-  /* animated neon palm sprites (screen-blend drops the black), gentle wind sway */
-  #overlay .mTree { position: absolute; bottom: 2%; z-index: 0; pointer-events: none; height: 34%; width: auto; transform-origin: bottom center; filter: hue-rotate(135deg) saturate(1.15) brightness(1.08) drop-shadow(0 0 10px rgba(255,150,205,.6)); }
-  /* receding boulevard, perspective-consistent: base on the ground line, size proportional to depth */
-  #overlay .mTree { display: none !important; } /* palms are now baked into the bg on the road edge */
-  #overlay .mTree.l { left: -30%; bottom: 2%; height: 48%; animation: treeSwayL 5.6s ease-in-out infinite; }
-  #overlay .mTree.r { right: -30%; bottom: 2%; height: 48%; animation: treeSwayR 6.3s ease-in-out infinite; }
-  #overlay .mTree.ml { left: -10%; bottom: 10%; height: 35%; opacity: 0.96; animation: treeSwayL 6.9s ease-in-out infinite; }
-  #overlay .mTree.mr { right: -10%; bottom: 10%; height: 35%; opacity: 0.96; animation: treeSwayR 6s ease-in-out infinite; }
-  #overlay .mTree.fl { left: 5%; bottom: 16%; height: 26%; opacity: 0.9; animation: treeSwayL 7.6s ease-in-out infinite; }
-  #overlay .mTree.fr { right: 5%; bottom: 16%; height: 26%; opacity: 0.9; animation: treeSwayR 6.7s ease-in-out infinite; }
-  #overlay .mTree.f2l { left: 17%; bottom: 21%; height: 18%; opacity: 0.82; animation: treeSwayL 8.3s ease-in-out infinite; }
-  #overlay .mTree.f2r { right: 17%; bottom: 21%; height: 18%; opacity: 0.82; animation: treeSwayR 7.4s ease-in-out infinite; }
-  #overlay .mTree.f3l { left: 24%; bottom: 24%; height: 13%; opacity: 0.72; animation: treeSwayL 7s ease-in-out infinite; }
-  #overlay .mTree.f3r { right: 24%; bottom: 24%; height: 13%; opacity: 0.72; animation: treeSwayR 6.4s ease-in-out infinite; }
-  #overlay .mTree.f4l { left: 30%; bottom: 26.5%; height: 9%; opacity: 0.62; animation: treeSwayL 7.9s ease-in-out infinite; }
-  #overlay .mTree.f4r { right: 30%; bottom: 26.5%; height: 9%; opacity: 0.62; animation: treeSwayR 6.9s ease-in-out infinite; }
-  #overlay .mTree.f5l { left: 34%; bottom: 28%; height: 6.4%; opacity: 0.54; animation: treeSwayL 8.6s ease-in-out infinite; }
-  #overlay .mTree.f5r { right: 34%; bottom: 28%; height: 6.4%; opacity: 0.54; animation: treeSwayR 7.7s ease-in-out infinite; }
-  #overlay .mTree.f6l { left: 38%; bottom: 29.5%; height: 4%; opacity: 0.46; animation: treeSwayL 9s ease-in-out infinite; }
-  #overlay .mTree.f6r { right: 38%; bottom: 29.5%; height: 4%; opacity: 0.46; animation: treeSwayR 8.2s ease-in-out infinite; }
-  @media (orientation: landscape) {
-    #overlay .mTree { height: 66%; }
-    #overlay .mTree.l { left: -7.5%; bottom: 4%; height: 64%; } #overlay .mTree.r { right: -7.5%; bottom: 4%; height: 64%; }
-    #overlay .mTree.ml { left: -0.3%; bottom: 10%; height: 50%; } #overlay .mTree.mr { right: -0.3%; bottom: 10%; height: 50%; }
-    #overlay .mTree.fl { left: 6.6%; bottom: 16%; height: 38%; } #overlay .mTree.fr { right: 6.6%; bottom: 16%; height: 38%; }
-    #overlay .mTree.f2l { left: 13.5%; bottom: 22%; height: 28%; } #overlay .mTree.f2r { right: 13.5%; bottom: 22%; height: 28%; }
-    #overlay .mTree.f3l { left: 20.1%; bottom: 28%; height: 20%; } #overlay .mTree.f3r { right: 20.1%; bottom: 28%; height: 20%; }
-    #overlay .mTree.f4l { left: 25.5%; bottom: 33%; height: 13%; } #overlay .mTree.f4r { right: 25.5%; bottom: 33%; height: 13%; }
-    #overlay .mTree.f5l { left: 29.4%; bottom: 37%; height: 8%; } #overlay .mTree.f5r { right: 29.4%; bottom: 37%; height: 8%; }
-    #overlay .mTree.f6l { left: 32%; bottom: 40%; height: 5%; } #overlay .mTree.f6r { right: 32%; bottom: 40%; height: 5%; }
-  }
-  @keyframes treeSwayL { 0%,100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.5deg); } }
-  @keyframes treeSwayR { 0%,100% { transform: scaleX(-1) rotate(-1.4deg); } 50% { transform: scaleX(-1) rotate(1.5deg); } }
-  @media (prefers-reduced-motion: reduce) {
-    #overlay .mTree.l, #overlay .mTree.ml, #overlay .mTree.fl, #overlay .mTree.f2l, #overlay .mTree.f3l, #overlay .mTree.f4l, #overlay .mTree.f5l, #overlay .mTree.f6l { animation: none; }
-    #overlay .mTree.r, #overlay .mTree.mr, #overlay .mTree.fr, #overlay .mTree.f2r, #overlay .mTree.f3r, #overlay .mTree.f4r, #overlay .mTree.f5r, #overlay .mTree.f6r { animation: none; transform: scaleX(-1); } }
+  /* ===== editable palm trees (dev-placeable) — soft-pink neon ===== */
+  #overlay #mTrees { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+  #overlay .mTreeEl { position: absolute; width: auto; transform-origin: bottom center; user-select: none; -webkit-user-drag: none;
+    filter: hue-rotate(138deg) saturate(0.72) brightness(1.24) drop-shadow(0 0 12px rgba(255,150,205,.5)); }
+  #overlay.treeedit #mTrees { pointer-events: auto; z-index: 1000; }
+  #overlay.treeedit .mTreeEl { cursor: grab; }
+  #overlay.treeedit .mTreeEl.sel { outline: 2px dashed #39ff9e; outline-offset: 3px; filter: hue-rotate(138deg) saturate(.95) brightness(1.35) drop-shadow(0 0 16px #39ff9e); }
+  #treeDev { position: fixed; right: 10px; top: 58px; z-index: 2147483646; width: 205px; background: rgba(8,4,20,.95);
+    border: 1px solid rgba(57,255,158,.4); border-radius: 12px; padding: 11px 12px; font: 12px/1.45 ui-monospace, monospace; color: #d6f0ff;
+    box-shadow: 0 8px 30px rgba(0,0,0,.6); }
+  #treeDev h4 { margin: 0 0 8px; color: #39ff9e; font-size: 12px; letter-spacing: 1.5px; }
+  #treeDev .sel-info { color: #39ff9e; font-size: 10px; min-height: 12px; margin-bottom: 4px; }
+  #treeDev .row { margin: 6px 0; display: flex; gap: 6px; align-items: center; }
+  #treeDev button { flex: 1; padding: 6px 8px; background: #1a1030; color: #d6f0ff; border: 1px solid rgba(57,255,158,.35);
+    border-radius: 7px; cursor: pointer; font: 11px ui-monospace, monospace; }
+  #treeDev button:hover { background: #2a1850; border-color: #39ff9e; }
+  #treeDev button.warn { border-color: rgba(255,90,120,.5); color: #ffb3c0; }
+  #treeDev input[type=range] { flex: 1; accent-color: #39ff9e; }
+  #treeDev .hint { color: #7fb0ff; font-size: 10px; margin-top: 8px; line-height: 1.4; }
   /* hide the old hand-built CSS scene elements now that we use the generated art */
   #overlay .mHaze, #overlay .mStars, #overlay .mDust, #overlay .mSun, #overlay .mCity,
   #overlay .mGround, #overlay .mGrid, #overlay .mHorizon, #overlay .mPalm { display: none !important; }
@@ -719,22 +702,8 @@ window.__B="1783477494";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <canvas class="mSunViz" aria-hidden="true"></canvas>
   <div class="mSunFront" aria-hidden="true"></div>
   <div class="mVizLabel" aria-hidden="true"></div>
-  <img class="mTree f6l" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree f6r" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree f5l" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree f5r" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree f4l" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree f4r" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree f3l" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree f3r" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree f2l" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree f2r" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree fl" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree fr" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree ml" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree mr" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree l" src="assets/palm_grounded.png" alt="" aria-hidden="true">
-  <img class="mTree r" src="assets/palm_grounded.png" alt="" aria-hidden="true">
+  <div id="mTrees" aria-hidden="true"></div>
+  <div id="treeDev" hidden></div>
   <div class="mFog" aria-hidden="true"></div>
   <div class="mSparks" aria-hidden="true"></div>
   <div class="mHaze" aria-hidden="true"></div>
@@ -5933,7 +5902,7 @@ document.getElementById('bustedMenu').addEventListener('click', () => {
 });
 
 // ---- developer traffic-pattern editor (drag & drop cars) ----
-const devPanel = document.getElementById('devPanel');
+const devPanel = document.getElementById('treeDev');
 const devRoad = document.getElementById('devRoad');
 const devRoadInner = document.getElementById('devRoadInner');
 const devLoopEl = document.getElementById('devLoop');
@@ -6095,6 +6064,93 @@ document.addEventListener('keydown', e => {
 
 state = 'menu';
 requestAnimationFrame(frame);
+</script>
+
+<script>
+/* ===== TREE EDITOR (dev code 6363) ===== */
+(function(){
+  var overlay=document.getElementById('overlay'); if(!overlay) return;
+  var host=document.getElementById('mTrees'), panel=document.getElementById('treeDev');
+  var PALM='assets/palm_grounded.png';
+  function land(){ return matchMedia('(orientation: landscape)').matches; }
+  function KEY(){ return land()?'devTrees_land_v1':'devTrees_port_v1'; }
+  function defaults(L){
+    var HZ=L?0.58:0.63,
+        pts=L?[[0.02,.985],[.078,.904],[.15,.839],[.205,.787],[.249,.746],[.285,.713],[.312,.686],[.327,.665],[.338,.648],[.347,.634]]
+              :[[.05,.985],[.11,.915],[.17,.858],[.23,.808],[.28,.766],[.32,.73],[.355,.7],[.385,.676],[.41,.656],[.43,.64]],
+        kh=(L?0.70:0.42)/(0.985-HZ), out=[];
+    pts.forEach(function(p){ var s=+(kh*(p[1]-HZ)*100).toFixed(2), y=+((1-p[1])*100).toFixed(2);
+      out.push({x:+(p[0]*100).toFixed(2),y:y,s:s,flip:false});
+      out.push({x:+((1-p[0])*100).toFixed(2),y:y,s:s,flip:true}); });
+    return out;
+  }
+  function load(){ try{var v=JSON.parse(localStorage.getItem(KEY())); if(Array.isArray(v)&&v.length) return v;}catch(e){} return defaults(land()); }
+  var trees=load(), sel=-1, dev=false, drag=null;
+  function save(){ try{localStorage.setItem(KEY(),JSON.stringify(trees));}catch(e){} }
+  function render(){
+    host.innerHTML='';
+    trees.forEach(function(t,i){
+      var im=document.createElement('img'); im.className='mTreeEl'+(i===sel?' sel':''); im.src=PALM; im.dataset.i=i; im.draggable=false;
+      im.style.left=t.x+'%'; im.style.bottom=t.y+'%'; im.style.height=t.s+'%';
+      im.style.transform='translateX(-50%)'+(t.flip?' scaleX(-1)':'');
+      host.appendChild(im);
+    });
+    updatePanel();
+  }
+  function updatePanel(){ if(!panel||panel.hidden) return;
+    var info=panel.querySelector('#dvInfo'), sz=panel.querySelector('#dvSize');
+    if(sel>=0&&trees[sel]){ info.textContent='#'+sel+'  x'+trees[sel].x.toFixed(1)+' y'+trees[sel].y.toFixed(1)+' size'+trees[sel].s.toFixed(1); if(sz) sz.value=trees[sel].s; info.style.color='#39ff9e'; }
+    else { info.textContent='(click a tree to select · '+trees.length+' trees)'; info.style.color='#7fb0ff'; }
+  }
+  function setDev(on){ dev=on; overlay.classList.toggle('treeedit',on); if(panel) panel.hidden=!on; if(!on) sel=-1; render(); }
+  var seq='';
+  addEventListener('keydown',function(e){
+    if(/^[0-9]$/.test(e.key)){ seq=(seq+e.key).slice(-4); if(seq==='6363'){ seq=''; setDev(!dev); return; } }
+    if(!dev) return;
+    if(e.key==='Escape'){ setDev(false); return; }
+    if((e.key==='Delete'||e.key==='Backspace')&&sel>=0){ trees.splice(sel,1); sel=-1; save(); render(); e.preventDefault(); return; }
+    if(sel>=0){ var t=trees[sel], st=e.shiftKey?1:0.2;
+      if(e.key==='ArrowLeft'){t.x-=st;} else if(e.key==='ArrowRight'){t.x+=st;}
+      else if(e.key==='ArrowUp'){t.y+=st;} else if(e.key==='ArrowDown'){t.y-=st;}
+      else if(e.key==='+'||e.key==='='){t.s+=st;} else if(e.key==='-'){t.s=Math.max(1,t.s-st);}
+      else return;
+      render(); save(); e.preventDefault();
+    }
+  });
+  host.addEventListener('pointerdown',function(e){
+    if(!dev) return; var el=e.target.closest('.mTreeEl'); if(!el) return;
+    sel=+el.dataset.i; var r=overlay.getBoundingClientRect();
+    drag={ox:e.clientX,oy:e.clientY,sx:trees[sel].x,sy:trees[sel].y,W:r.width,H:r.height};
+    render(); e.preventDefault();
+  });
+  addEventListener('pointermove',function(e){ if(!drag||sel<0) return;
+    trees[sel].x=Math.max(-15,Math.min(115, drag.sx+(e.clientX-drag.ox)/drag.W*100));
+    trees[sel].y=Math.max(-15,Math.min(105, drag.sy-(e.clientY-drag.oy)/drag.H*100));
+    render();
+  });
+  addEventListener('pointerup',function(){ if(drag){ drag=null; save(); } });
+  if(panel){
+    panel.innerHTML='<h4>&#127796; TREE EDITOR</h4>'
+      +'<div class="sel-info" id="dvInfo"></div>'
+      +'<div class="row"><button id="dvAdd">+ Add</button><button id="dvDup">Duplicate</button></div>'
+      +'<div class="row"><button id="dvFlip">Flip</button><button id="dvDel" class="warn">Delete</button></div>'
+      +'<div class="row">Size<input id="dvSize" type="range" min="1" max="95" step="0.5"></div>'
+      +'<div class="row"><button id="dvReset" class="warn">Reset all</button><button id="dvExit">Exit</button></div>'
+      +'<div class="hint">Click a tree &rarr; drag to move. Arrows nudge (Shift = faster), +/- resize. Size slider resizes. Delete key removes. Type 6363 to toggle. Auto-saves.</div>';
+    var q=function(s){return panel.querySelector(s);};
+    q('#dvAdd').onclick=function(){ trees.push({x:50,y:12,s:30,flip:false}); sel=trees.length-1; save(); render(); };
+    q('#dvDup').onclick=function(){ if(sel<0)return; var t=Object.assign({},trees[sel]); t.x+=4; trees.push(t); sel=trees.length-1; save(); render(); };
+    q('#dvFlip').onclick=function(){ if(sel<0)return; trees[sel].flip=!trees[sel].flip; save(); render(); };
+    q('#dvDel').onclick=function(){ if(sel<0)return; trees.splice(sel,1); sel=-1; save(); render(); };
+    q('#dvSize').oninput=function(e){ if(sel<0)return; trees[sel].s=+e.target.value; render(); };
+    q('#dvSize').onchange=save;
+    q('#dvReset').onclick=function(){ if(!confirm('Reset all trees to the default avenue?'))return; localStorage.removeItem(KEY()); trees=defaults(land()); sel=-1; save(); render(); };
+    q('#dvExit').onclick=function(){ setDev(false); };
+  }
+  var wasLand=land();
+  addEventListener('resize',function(){ if(land()!==wasLand){ wasLand=land(); trees=load(); sel=-1; render(); } });
+  render();
+})();
 </script>
 </body>
 </html>
