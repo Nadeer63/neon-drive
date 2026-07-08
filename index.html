@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783475954";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783476929";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -46,13 +46,14 @@ window.__B="1783475954";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   #overlay { overflow: hidden; background: radial-gradient(130% 92% at 50% 2%, #241149 0%, #0d0726 44%, #050310 100%); }
   /* generated synthwave artwork background (replaces the CSS-built scene) */
   #overlay .mBg { position: absolute; inset: 0; z-index: 0; pointer-events: none;
-    background-image: url("assets/menu_bg_portrait_back2.png"); background-size: cover; background-position: center center; }
-  @media (orientation: landscape) { #overlay .mBg { background-image: url("assets/menu_bg_land_back2.png"); } }
+    background-image: url("assets/menu_bg_portrait_palms.png"); background-size: cover; background-position: center center; }
+  @media (orientation: landscape) { #overlay .mBg { background-image: url("assets/menu_bg_land_palms.png"); } }
   /* the pulled-back bgs have their own small distant baked sun — hide the old cut-out disc + viz so they don't ghost over it */
   #overlay .mSunFront, #overlay .mSunViz { display: none !important; }
   /* animated neon palm sprites (screen-blend drops the black), gentle wind sway */
-  #overlay .mTree { position: absolute; bottom: 2%; z-index: 0; pointer-events: none; height: 34%; width: auto; transform-origin: bottom center; filter: hue-rotate(135deg) saturate(1.15) brightness(1.08) drop-shadow(0 0 10px rgba(255,150,205,.6)) drop-shadow(0 7px 5px rgba(0,0,0,.55)); }
+  #overlay .mTree { position: absolute; bottom: 2%; z-index: 0; pointer-events: none; height: 34%; width: auto; transform-origin: bottom center; filter: hue-rotate(135deg) saturate(1.15) brightness(1.08) drop-shadow(0 0 10px rgba(255,150,205,.6)); }
   /* receding boulevard, perspective-consistent: base on the ground line, size proportional to depth */
+  #overlay .mTree { display: none !important; } /* palms are now baked into the bg on the road edge */
   #overlay .mTree.l { left: -30%; bottom: 2%; height: 48%; animation: treeSwayL 5.6s ease-in-out infinite; }
   #overlay .mTree.r { right: -30%; bottom: 2%; height: 48%; animation: treeSwayR 6.3s ease-in-out infinite; }
   #overlay .mTree.ml { left: -10%; bottom: 10%; height: 35%; opacity: 0.96; animation: treeSwayL 6.9s ease-in-out infinite; }
@@ -71,14 +72,14 @@ window.__B="1783475954";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   #overlay .mTree.f6r { right: 38%; bottom: 29.5%; height: 4%; opacity: 0.46; animation: treeSwayR 8.2s ease-in-out infinite; }
   @media (orientation: landscape) {
     #overlay .mTree { height: 66%; }
-    #overlay .mTree.l { left: -23%; bottom: 1.5%; height: 64%; } #overlay .mTree.r { right: -23%; bottom: 1.5%; height: 64%; }
-    #overlay .mTree.ml { left: -4%; bottom: 8.5%; height: 47%; } #overlay .mTree.mr { right: -4%; bottom: 8.5%; height: 47%; }
-    #overlay .mTree.fl { left: 9%; bottom: 13.5%; height: 34%; } #overlay .mTree.fr { right: 9%; bottom: 13.5%; height: 34%; }
-    #overlay .mTree.f2l { left: 20%; bottom: 17.5%; height: 25%; } #overlay .mTree.f2r { right: 20%; bottom: 17.5%; height: 25%; }
-    #overlay .mTree.f3l { left: 27%; bottom: 20.5%; height: 17%; } #overlay .mTree.f3r { right: 27%; bottom: 20.5%; height: 17%; }
-    #overlay .mTree.f4l { left: 33%; bottom: 22.5%; height: 12%; } #overlay .mTree.f4r { right: 33%; bottom: 22.5%; height: 12%; }
-    #overlay .mTree.f5l { left: 37%; bottom: 24%; height: 8.6%; } #overlay .mTree.f5r { right: 37%; bottom: 24%; height: 8.6%; }
-    #overlay .mTree.f6l { left: 41%; bottom: 25.5%; height: 5%; } #overlay .mTree.f6r { right: 41%; bottom: 25.5%; height: 5%; }
+    #overlay .mTree.l { left: -7.5%; bottom: 4%; height: 64%; } #overlay .mTree.r { right: -7.5%; bottom: 4%; height: 64%; }
+    #overlay .mTree.ml { left: -0.3%; bottom: 10%; height: 50%; } #overlay .mTree.mr { right: -0.3%; bottom: 10%; height: 50%; }
+    #overlay .mTree.fl { left: 6.6%; bottom: 16%; height: 38%; } #overlay .mTree.fr { right: 6.6%; bottom: 16%; height: 38%; }
+    #overlay .mTree.f2l { left: 13.5%; bottom: 22%; height: 28%; } #overlay .mTree.f2r { right: 13.5%; bottom: 22%; height: 28%; }
+    #overlay .mTree.f3l { left: 20.1%; bottom: 28%; height: 20%; } #overlay .mTree.f3r { right: 20.1%; bottom: 28%; height: 20%; }
+    #overlay .mTree.f4l { left: 25.5%; bottom: 33%; height: 13%; } #overlay .mTree.f4r { right: 25.5%; bottom: 33%; height: 13%; }
+    #overlay .mTree.f5l { left: 29.4%; bottom: 37%; height: 8%; } #overlay .mTree.f5r { right: 29.4%; bottom: 37%; height: 8%; }
+    #overlay .mTree.f6l { left: 32%; bottom: 40%; height: 5%; } #overlay .mTree.f6r { right: 32%; bottom: 40%; height: 5%; }
   }
   @keyframes treeSwayL { 0%,100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.5deg); } }
   @keyframes treeSwayR { 0%,100% { transform: scaleX(-1) rotate(-1.4deg); } 50% { transform: scaleX(-1) rotate(1.5deg); } }
