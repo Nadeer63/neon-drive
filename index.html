@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783550907";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783551879";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1970,6 +1970,7 @@ function render() {
   // active theme drives sky/weather as soon as it's set (switched inside the tunnel)
   const inCity = !!theme;
   litFacades = !inCity;   // open Miami strip gets lit pastel building faces
+  if (gameMode === 'arcade') litFacades = false;   // arcade: dark neon-window skyline like the main-page city
   winColor = inCity ? theme.win : '255,238,180';
   wetRoad = inCity && theme.rain && cityExitZ >= 0 && position >= cityExitZ + 1500;   // wet rainy street
 
@@ -4001,7 +4002,7 @@ function drawBuilding(x, baseY, w, h, color, fog){
     fgr.addColorStop(0.6, `rgb(${(fr*0.36)|0},${(fg*0.36)|0},${(fb*0.36)|0})`);
     fgr.addColorStop(1, `rgb(${(fr*0.16)|0},${(fg*0.16)|0},${(fb*0.16)|0})`);
     ctx.fillStyle = fgr;
-  } else ctx.fillStyle = '#08061a';
+  } else ctx.fillStyle = (gameMode === 'arcade') ? '#0e0a28' : '#08061a';   // arcade: dark-purple fill like the main-page city
   ctx.fillRect(left, top, w, h);
 
   // Art-Deco horizontal banding on the Miami strip (thin neon racing stripes across the facade)
@@ -4046,9 +4047,10 @@ function drawBuilding(x, baseY, w, h, color, fog){
     }
   }
 
-  // glowing neon outline around the tower silhouette (sides + top)
-  ctx.strokeStyle = color; ctx.lineWidth = Math.max(1.2, w*0.03);
-  if (w > 13) { ctx.shadowColor = color; ctx.shadowBlur = Math.min(10, w*0.22); }
+  // glowing neon outline around the tower silhouette (sides + top) — brighter in arcade for the main-page wireframe look
+  const _arc = (gameMode === 'arcade');
+  ctx.strokeStyle = color; ctx.lineWidth = Math.max(1.2, w*0.03) * (_arc ? 1.7 : 1);
+  if (w > 13 || _arc) { ctx.shadowColor = color; ctx.shadowBlur = _arc ? Math.min(18, w*0.42) : Math.min(10, w*0.22); }
   ctx.beginPath();
   ctx.moveTo(left, baseY); ctx.lineTo(left, top); ctx.lineTo(left + w, top); ctx.lineTo(left + w, baseY);
   ctx.stroke();
