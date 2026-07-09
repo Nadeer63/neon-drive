@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783562647";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783565215";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1034,7 +1034,7 @@ const CURVE_SPAN = 16000;     // position units one curve occupies (then straigh
 // CAUSEWAY: at score 5000 the road becomes a Miami causeway — dead straight, ocean on both
 // sides, a palm-tree median to the left, and oncoming traffic on the far-left carriageway.
 const CAUSE_START = 500000, CAUSE_END = 800000;           // causeway runs from score 5k to 8k
-function inCause(z){ return z >= CAUSE_START && z <= CAUSE_END; }
+function inCause(z){ return gameMode !== 'arcade' && z >= CAUSE_START && z <= CAUSE_END; }   // no causeway/ocean in arcade — it keeps the neon grid floor
 let causeCars = [], causeSeeded = false;   // oncoming cars on the left carriageway (visual)
 let districtStart = -1, districtEnd = -1;   // downtown street (shops + pedestrians) after the curve
 const DISTRICT_SKY = ['#241036', '#7a2e54', '#ffa850'];   // warm dusk look for the district
@@ -2082,6 +2082,7 @@ function render() {
 
   // PASS 1 — road, near to far. Record per-segment hill clip line for sprites.
   let maxY = H;
+  let gNear = null, gFar = null;   // ARCADE grid-floor: nearest & farthest drawn road points (for the converging shoulder lines)
   for (let n = 0; n < DRAW_DIST; n++) {
     const a = pts[n].pj, b = pts[n + 1].pj;   // a = near edge, b = far edge
     pts[n].clip = maxY;
@@ -2098,7 +2099,7 @@ function render() {
     // (ground/road use a single uniform shade — alternating shades per segment created horizontal banding "lines")
     // at a cross street the roadside ground becomes asphalt so it reads as an intersection passing through
     const causeG = inCause(a.z);                 // causeway: ocean on both sides
-    const isCross = pts[n].seg.cross && !causeG;  // no cross-streets over the causeway water
+    const isCross = pts[n].seg.cross && !causeG && gameMode !== 'arcade';  // no cross-streets over causeway water / arcade grid floor
     // smooth vertical water gradient (deeper toward the horizon) — no per-segment ripple band
     ctx.fillStyle = inTun ? '#0a0812' : causeG ? (dark ? '#0c3a73' : '#114a86') : harborG ? (dark ? '#0a2844' : '#0e3050') : (isCross ? '#0e0e17' : '#190643');
     ctx.fillRect(0, b.sy, W, a.sy - b.sy + 1);   // +1 overlaps ground segments (no sidewalk seam); the road poly above covers any bleed onto the road
@@ -2161,20 +2162,28 @@ function render() {
       }
     }
 
-    // ARCADE: synthwave neon grid — bright cyan lines receding across the road (matches the main-page scene).
-    // One line per world-Z cell, interpolated to the exact boundary so the grid glides smoothly toward the camera.
-    if (gameMode === 'arcade' && !isCross && !causeG) {
-      const GZ = 42;                                          // world units between grid lines
-      if (Math.floor(a.z / GZ) !== Math.floor(b.z / GZ)) {
-        const gz = Math.max(Math.floor(a.z / GZ), Math.floor(b.z / GZ)) * GZ;
-        const t = (gz - a.z) / (b.z - a.z);
-        const gx = a.sx + (b.sx - a.sx) * t, gy = a.sy + (b.sy - a.sy) * t, gw = a.sw + (b.sw - a.sw) * t;
-        const th = Math.max(1, gw * 0.05);
-        ctx.fillStyle = `rgba(72,248,255,${0.42 + fog * 0.5})`;
-        ctx.shadowColor = '#40f8ff'; ctx.shadowBlur = 6;
-        ctx.fillRect(gx - gw, gy - th / 2, gw * 2, th);
-        ctx.shadowBlur = 0;
-      }
+    // ARCADE: neon grid FLOOR — matches the main-page menu grid. Drawn last (over road + ground, under palms/cars).
+    // CYAN lines recede in Z across the full width (one continuous floor line); MAGENTA lines converge in X on the shoulders.
+    if (gameMode === 'arcade') {
+      // cyan horizontal grid line at this segment's near edge — spans the road AND the ground as one floor line
+      const hth = Math.min(6, Math.max(1, (a.sy - b.sy) * 0.14));
+      ctx.fillStyle = `rgba(72,248,255,${0.24 + fog * 0.6})`;
+      ctx.fillRect(0, a.sy - hth, W, hth);
+      if (!gNear) gNear = a;                     // first drawn = nearest visible road row
+      gFar = a;                                  // last drawn = farthest (horizon vanishing row)
+    }
+  }
+
+  // ARCADE grid-floor: MAGENTA perspective lines converging to the horizon, giving the ground the main-page
+  // neon-grid look. One line per world-X offset from the road centre, drawn as a CONSTANT-width quad from the
+  // near row to the vanishing row so the visible (far) end stays crisp instead of tapering to a sub-pixel sliver.
+  if (gameMode === 'arcade' && gNear && gFar && gNear.sy > gFar.sy + 20) {
+    const wv = 2.3;
+    ctx.fillStyle = 'rgba(255,84,212,0.5)';
+    for (const kk of [1.25, 1.7, 2.3, 3.1, 4.2, 5.8, 8.0, 11.5, 16.0]) for (const s of [-1, 1]) {
+      const k = kk * s, xN = gNear.sx + k * gNear.sw, xF = gFar.sx + k * gFar.sw;
+      if ((xN < -40 && xF < -40) || (xN > W + 40 && xF > W + 40)) continue;   // wholly off-screen -> skip
+      poly(xN - wv, gNear.sy, xN + wv, gNear.sy, xF + wv, gFar.sy, xF - wv, gFar.sy);
     }
   }
 
