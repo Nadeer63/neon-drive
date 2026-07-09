@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783559326";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783559752";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -3243,8 +3243,7 @@ function drawScene(sc, side, worldX, segPt, fog, camY, camZ, clipY, fade, city){
       }
     }
   } else if (gameMode === 'arcade') {
-    // ARCADE: procedural neon-WIREFRAME towers = the main-page city look (NOT the pastel Miami hotel sprites)
-    ctx.fillStyle = '#00ff00'; ctx.fillRect(sp.sx - 30, sp.sy - 160, 60, 160);   // DEBUG green
+    // ARCADE: procedural neon towers = the main-page city look (NOT the pastel Miami hotel sprites)
     drawBuilding(sp.sx, sp.sy, unit * sc.w * 1.15, unit * sc.h * 1.35, sc.color || '#ff8fc8', fog);
   } else {
     // open Miami strip — Art-Deco hotels with a 3/4 view baked into the sprite (real 3D volume, no projected walls).
@@ -4033,25 +4032,20 @@ function drawBuilding(x, baseY, w, h, color, fog){
       const pad = w * 0.12;
       const cw = (w - pad*2) / cols, ch = (h - pad*2) / rows;
       const base = `${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)}`;
-      if (_arc) {
-        // main-page neon WIREFRAME: a glowing lattice of floor + column lines (no solid windows)
-        ctx.strokeStyle = color; ctx.lineWidth = Math.max(1.1, w*0.024);
-        ctx.shadowColor = color; ctx.shadowBlur = Math.min(11, w*0.26);
-        ctx.beginPath();
-        for (let r = 1; r < rows; r++){ const ly = top + pad + r*ch; ctx.moveTo(left+pad, ly); ctx.lineTo(left+w-pad, ly); }
-        for (let c = 1; c < cols; c++){ const lx = left + pad + c*cw; ctx.moveTo(lx, top+pad); ctx.lineTo(lx, baseY-pad); }
-        ctx.stroke(); ctx.shadowBlur = 0;
-      } else {
+      {
         const ww = cw * 0.64, wh = ch * 0.62;
         const pal = [base, base, '255,255,255', WIN_NEON[(left|0) % WIN_NEON.length]];
+        const wa = _arc ? 0.92 : 0.6;                                       // arcade windows glow brighter so towers read at night
+        if (_arc) { ctx.shadowColor = color; ctx.shadowBlur = Math.min(6, w*0.1); }
         for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
           const wx = left + pad + c*cw + (cw-ww)/2;
           const wy = top + pad + r*ch + (ch-wh)/2;
           const hash = (r*7 + c*13 + (left|0)) % 7;
           if (hash < 2) { ctx.fillStyle = 'rgba(10,8,22,0.85)'; }            // unlit window
-          else { ctx.fillStyle = `rgba(${pal[(r*3 + c*5 + (left|0)) % pal.length]},${0.6 + fog*0.35})`; }
+          else { ctx.fillStyle = `rgba(${pal[(r*3 + c*5 + (left|0)) % pal.length]},${wa + fog*0.08})`; }
           ctx.fillRect(wx, wy, Math.max(1, ww), Math.max(1, wh));
         }
+        ctx.shadowBlur = 0;
       }
     }
     // occasional glowing neon sign band
