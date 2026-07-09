@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783567810";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783568640";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1207,11 +1207,16 @@ let devPattern = null, devLoopSpan = 0, lastHillZone = false, forcedHillStart = 
 let devData = { slots: {}, active: '' };   // shared via the server (patterns.json) so the phone gets it too
 (function loadDevDataInitial(){
   try { const ls = localStorage.getItem('devData'); if (ls) devData = JSON.parse(ls); } catch (e) {}
-  fetch('patterns.json?ts=' + Date.now()).then(r => r.ok ? r.json() : null).then(d => { if (d && d.slots) devData = d; }).catch(() => {});
+  fetch('patterns.json?ts=' + Date.now()).then(r => r.ok ? r.json() : null).then(d => { if (d && d.slots) { if (!d.arcade && devData.arcade) d.arcade = devData.arcade; devData = d; } }).catch(() => {});
 })();
 function slotHasCars(n){ const p = devData.slots[n]; return !!(p && p.cars && p.cars.length); }
 function loadDevPattern() {
-  if (gameMode === 'arcade') { devPattern = null; return; }   // arcade uses the procedural 4-lane spawner, not hand 3-lane patterns
+  if (gameMode === 'arcade') {                                // arcade uses its OWN 4-lane patterns (editor via the "4" key)
+    const a = devData.arcade;
+    const p = a && a.active && a.slots && a.slots[a.active];
+    devPattern = (p && p.cars && p.cars.length) ? p : null;   // your arcade pattern, else null -> procedural 4-lane spawner
+    return;
+  }
   // slot 2 takes over while you're on a hill; otherwise the active slot
   let slot = devData.active;
   if (onHillZone(position) && slotHasCars('2')) slot = '2';
@@ -6030,7 +6035,7 @@ document.getElementById('bustedMenu').addEventListener('click', () => {
 });
 
 // ---- developer traffic-pattern editor (drag & drop cars) ----
-const devPanel = document.getElementById('treeDev');
+const devPanel = document.getElementById('devPanel');
 const devRoad = document.getElementById('devRoad');
 const devRoadInner = document.getElementById('devRoadInner');
 const devLoopEl = document.getElementById('devLoop');
@@ -6038,16 +6043,28 @@ const DEV_SCALE = 0.05;                 // editor pixels per game distance unit 
 function devLoop(){ return +devLoopEl.value; }
 function setRoadHeight(){ devRoadInner.style.height = Math.max(280, Math.round(devLoop() * DEV_SCALE)) + 'px'; }
 let devCurSlot = '1';
-let devCars = [];   // [{ el, lane(0..2), dy(0..1) }]
+let devLanes = 3;          // 3 = cruise/city editor, 4 = ARCADE editor (opened with the "4" key)
+let devArcade = false;     // true while editing ARCADE (4-lane) patterns
+let devCars = [];   // [{ el, lane(0..devLanes-1), z }]
 let devSelected = null;
-function devAll(){ return devData.slots; }
+// which pattern store we're editing: arcade patterns live separately (4-lane) from cruise (3-lane)
+function devStore(){ if (devArcade) { if (!devData.arcade) devData.arcade = { slots: {}, active: '' }; return devData.arcade; } return devData; }
+// clamp a pointer X to a lane index for the current lane count
+function laneAtX(clientX, rect){ return Math.max(0, Math.min(devLanes - 1, Math.floor((clientX - rect.left) / rect.width * devLanes))); }
+// rebuild the dashed lane dividers for N lanes (N-1 lines)
+function setLanes(N){
+  devLanes = N;
+  devRoadInner.querySelectorAll('.devlane').forEach(el => el.remove());
+  for (let i = 1; i < N; i++) { const d = document.createElement('div'); d.className = 'devlane'; d.style.left = (i * 100 / N) + '%'; devRoadInner.appendChild(d); }
+}
+function devAll(){ return devStore().slots; }
 function saveDevData(){
   try { localStorage.setItem('devData', JSON.stringify(devData)); } catch (e) {}
   fetch('save-patterns', { method: 'POST', body: JSON.stringify(devData) }).catch(() => {});   // share with the phone
 }
 function devStatus(t){ document.getElementById('devStatus').textContent = t || ''; }
 
-function positionCar(o){ const L = devLoop(); o.el.style.left = (o.lane * 33.333 + 11.17) + '%'; o.el.style.top = ((L - o.z) / L * 100) + '%'; }
+function positionCar(o){ const L = devLoop(); o.el.style.left = ((o.lane + 0.5) * (100 / devLanes) - 5.5) + '%'; o.el.style.top = ((L - o.z) / L * 100) + '%'; }
 function makeCar(lane, z, ramp){
   const el = document.createElement('div'); el.className = 'devcar' + (ramp ? ' ramp' : '');
   const x = document.createElement('div'); x.className = 'x'; x.textContent = '×'; el.appendChild(x);
@@ -6066,7 +6083,7 @@ function makeCar(lane, z, ramp){
       if (Math.abs(ev.clientX - sx) > 6 || Math.abs(ev.clientY - sy) > 6) moved = true;
       if (!moved) return;
       const rect = devRoadInner.getBoundingClientRect(), L = devLoop();
-      o.lane = Math.max(0, Math.min(2, Math.floor((ev.clientX - rect.left) / rect.width * 3)));
+      o.lane = laneAtX(ev.clientX, rect);
       o.z = Math.max(0, Math.min(L, L * (1 - (ev.clientY - rect.top) / rect.height)));
       positionCar(o);
     };
@@ -6082,7 +6099,7 @@ function loadCarsInto(list){
   (list || []).forEach(c => makeCar(c.lane, c.z != null ? c.z : (1 - (c.dy || 0)) * devLoop(), c.ramp));
 }
 function refreshDevSlots(){
-  const all = devAll(), active = devData.active;
+  const all = devAll(), active = devStore().active;
   const sc = document.getElementById('devSlots'); sc.innerHTML = '';
   for (const n of ['1','2','3','4','5']) {
     const b = document.createElement('button'); b.textContent = n;
@@ -6104,21 +6121,36 @@ function refreshDevSlots(){
 function devSnapshot(){ return { cars: devCars.map(c => c.ramp ? ({ lane: c.lane, z: Math.round(c.z), ramp: true }) : ({ lane: c.lane, z: Math.round(c.z) })), loop: +devLoopEl.value }; }
 
 function devLoadActive(){
-  const ap = devData.active && devData.slots[devData.active];
+  const st = devStore();
+  const ap = st.active && st.slots[st.active];
   if (ap && ap.cars && ap.cars.length) {
-    devCurSlot = devData.active;
+    devCurSlot = st.active;
     if (ap.loop) { devLoopEl.value = ap.loop; document.getElementById('devLoopVal').textContent = ap.loop; }
     setRoadHeight();
     loadCarsInto(ap.cars);
   } else { setRoadHeight(); }
 }
-document.getElementById('devOpen').onclick = () => {
+function openDevEditor(arcade){
+  devArcade = !!arcade;
   document.getElementById('overlay').classList.add('hidden');
+  setLanes(devArcade ? 4 : 3);                       // ARCADE = 4 lanes, cruise/city = 3
+  const h2 = document.querySelector('#devPanel h2'), sub = document.querySelector('#devPanel .devsub');
+  if (h2)  h2.textContent  = devArcade ? 'ARCADE PATTERN EDITOR' : 'TRAFFIC PATTERN EDITOR';
+  if (sub) sub.textContent = devArcade ? '4 LANES · + ADD CAR, drag onto the road · they snap to lanes · pattern loops'
+                                       : '+ ADD CAR, then drag the red blocks onto the road · they snap to lanes · pattern loops';
   devPanel.classList.remove('hidden');
+  loadCarsInto([]);                                   // clear any cars from the other mode
   refreshDevSlots(); devLoadActive(); devStatus('');
-  fetch('patterns.json?ts=' + Date.now()).then(r => r.ok ? r.json() : null).then(d => { if (d && d.slots) { devData = d; refreshDevSlots(); devLoadActive(); } }).catch(() => {});
+  fetch('patterns.json?ts=' + Date.now()).then(r => r.ok ? r.json() : null).then(d => {
+    if (d && d.slots) { if (!d.arcade && devData.arcade) d.arcade = devData.arcade; devData = d; refreshDevSlots(); devLoadActive(); }
+  }).catch(() => {});
   devRoad.scrollTop = devRoad.scrollHeight;   // start at the NEAR end (bottom)
-};
+}
+document.getElementById('devOpen').onclick = () => openDevEditor(false);
+// press "4" on the home menu to open the ARCADE (4-lane) pattern editor
+document.addEventListener('keydown', e => {
+  if (e.key === '4' && devPanel.classList.contains('hidden') && typeof onHome === 'function' && onHome()) { e.preventDefault(); openDevEditor(true); }
+});
 document.getElementById('devBack').onclick = () => { devPanel.classList.add('hidden'); document.getElementById('overlay').classList.remove('hidden'); };
 document.getElementById('devAddCar').onclick = () => { selectCar(makeCar(1, Math.min(devLoop() - 500, 1000 + devCars.length * 2200))); };
 // tap an empty road spot to move the selected car there (no holding)
@@ -6129,22 +6161,22 @@ devRoadInner.addEventListener('pointerup', e => {
   if (Math.abs(e.clientX - devRX) > 8 || Math.abs(e.clientY - devRY) > 8) return;   // a scroll, not a tap
   const rect = devRoadInner.getBoundingClientRect();
   const L = devLoop();
-  devSelected.lane = Math.max(0, Math.min(2, Math.floor((e.clientX - rect.left) / rect.width * 3)));
+  devSelected.lane = laneAtX(e.clientX, rect);
   devSelected.z = Math.max(0, Math.min(L, L * (1 - (e.clientY - rect.top) / rect.height)));
   positionCar(devSelected);
 });
 document.getElementById('devClear').onclick = () => { loadCarsInto([]); };
 document.getElementById('devSave').onclick = () => {
-  devData.slots[devCurSlot] = devSnapshot();
-  saveDevData(); refreshDevSlots(); devStatus('Saved to slot ' + devCurSlot + ' ✓ — synced to phone');
+  devStore().slots[devCurSlot] = devSnapshot();
+  saveDevData(); refreshDevSlots(); devStatus('Saved to slot ' + devCurSlot + (devArcade ? ' (arcade)' : '') + ' ✓ — synced to phone');
 };
 document.getElementById('devUse').onclick = () => {
-  devData.slots[devCurSlot] = devSnapshot();
-  devData.active = devCurSlot;
+  devStore().slots[devCurSlot] = devSnapshot();
+  devStore().active = devCurSlot;
   saveDevData();
-  devPanel.classList.add('hidden'); beginRun();
+  devPanel.classList.add('hidden'); beginRun(devArcade ? 'arcade' : 'cruise');
 };
-document.getElementById('devOff').onclick = () => { devData.active = ''; saveDevData(); refreshDevSlots(); devStatus('Using default traffic'); };
+document.getElementById('devOff').onclick = () => { devStore().active = ''; saveDevData(); refreshDevSlots(); devStatus(devArcade ? 'Arcade: using procedural 4-lane traffic' : 'Using default traffic'); };
 devLoopEl.value = +(localStorage.getItem('devLoop') || 18000);
 document.getElementById('devLoopVal').textContent = devLoopEl.value;
 devLoopEl.oninput = () => { localStorage.setItem('devLoop', devLoopEl.value); document.getElementById('devLoopVal').textContent = devLoopEl.value; setRoadHeight(); devCars.forEach(positionCar); };
@@ -6154,9 +6186,9 @@ let devMX = null, devMY = null, devGhost = null;
 function positionGhost(){
   if (!devGhost || devMX == null) return;
   const rect = devRoadInner.getBoundingClientRect(), L = devLoop();
-  const lane = Math.max(0, Math.min(2, Math.floor((devMX - rect.left) / rect.width * 3)));
+  const lane = laneAtX(devMX, rect);
   const z = Math.max(0, Math.min(L, L * (1 - (devMY - rect.top) / rect.height)));
-  devGhost.style.left = (lane * 33.333 + 11.17) + '%';
+  devGhost.style.left = ((lane + 0.5) * (100 / devLanes) - 5.5) + '%';
   devGhost.style.top = ((L - z) / L * 100) + '%';
 }
 devRoad.addEventListener('pointermove', e => { devMX = e.clientX; devMY = e.clientY; positionGhost(); });
@@ -6180,7 +6212,7 @@ document.addEventListener('keydown', e => {
     if (devMX != null) {
       const rect = devRoadInner.getBoundingClientRect();
       const rx = (devMX - rect.left) / rect.width, ry = (devMY - rect.top) / rect.height;
-      if (rx >= 0 && rx <= 1 && ry >= 0 && ry <= 1) { lane = Math.max(0, Math.min(2, Math.floor(rx * 3))); z = devLoop() * (1 - ry); }
+      if (rx >= 0 && rx <= 1 && ry >= 0 && ry <= 1) { lane = laneAtX(devMX, rect); z = devLoop() * (1 - ry); }
     }
     selectCar(makeCar(lane, z, e.key === '3'));   // 3 = ramp truck (launches you), 1 = normal car
   } else if (e.key === '2') {
