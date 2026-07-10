@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783643828";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783644972";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -41,6 +41,10 @@ window.__B="1783643828";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   body.arcadeScene #overlay > #devOpen,
   body.arcadeScene #settingsBtn,
   body.arcadeScene #topNav { display: none !important; }
+  /* the FLOOR is now drawn on the canvas (game projection) so cars sit on it — hide the CSS grid/ground; keep skyline, sun, palms, stars */
+  body.arcadeScene #overlay .mGrid,
+  body.arcadeScene #overlay .mGround,
+  body.arcadeScene #overlay .mHorizon { display: none !important; }
   #hud {
     position: fixed; top: 0; left: 0; right: 0; padding: 18px 22px;
     display: flex; justify-content: space-between; align-items: flex-start;
@@ -2197,52 +2201,37 @@ function render() {
     }
   }
 
-  // ARCADE neon-grid FLOOR — the main-page menu grid, rendered as ONE standalone flat perspective layer (NOT woven
-  // into the per-segment road loop, which is what kept occluding/clipping it). Magenta grid that scrolls toward the
-  // camera. Drawn after the road, before the palms/cars, so they occlude it naturally.
-  if (gameMode === 'arcade' && !arcScene && gNear && gFar && gNear.sy > gFar.sy + 20 && gFarN > gNearN) {
-    const vx = gFar.sx, vy = gFar.sy;                 // vanishing point (road centre at the horizon)
+  // ARCADE neon-grid FLOOR — drawn ON the canvas in the GAME's own projection (shares the road vanishing point),
+  // so traffic cars sit exactly ON it (the fixed CSS grid didn't match, which made the cars float). Cyan horizontals
+  // + magenta perspective lines, scrolling toward the camera. Cars + cockpit draw on top of it.
+  if (arcScene && gNear && gFar && gNear.sy > gFar.sy + 20) {
+    const vx = gFar.sx, vy = gFar.sy;                 // vanishing point = road centre at the horizon
     const bx = gNear.sx, by = H;                      // near centre, extended to the screen bottom
     ctx.save();
-    // CLIP the grid to the GROUND only — carve out the road strip so it keeps its dark surface, neon edges and
-    // lane dividers (the grid is the ground; the road stays a clear road). Road hole traced along the projected
-    // road edges (follows curves), widened slightly so the neon edges stay clean.
-    ctx.beginPath();
-    ctx.rect(0, 0, W, H);
-    const M = 1.14;                                   // widen the road cut-out past the neon edges
-    let started = false, lastY = Infinity;
-    for (let n = gNearN; n <= gFarN; n++) {           // left edge, near->far: keep sy strictly ascending (skip hill dips)
-      const p = pts[n].pj; if (p.sy >= lastY) continue; lastY = p.sy;
-      const x = p.sx - p.sw * M;
-      if (!started) { ctx.moveTo(x, p.sy); started = true; } else ctx.lineTo(x, p.sy);
-    }
-    lastY = -Infinity;
-    for (let n = gFarN; n >= gNearN; n--) {           // right edge, far->near: keep sy strictly descending
-      const p = pts[n].pj; if (p.sy <= lastY) continue; lastY = p.sy;
-      ctx.lineTo(p.sx + p.sw * M, p.sy);
-    }
-    ctx.closePath();
-    ctx.clip('evenodd');                              // draw grid everywhere EXCEPT the road strip
     ctx.lineCap = 'butt';
-    // --- vertical lines: straight, all converging to the vanishing point ---
-    const NV = 10, gap = W * 0.11;
-    ctx.strokeStyle = 'rgba(255,74,208,0.5)'; ctx.lineWidth = 1.7;
+    // magenta perspective (vertical) lines, all converging to the vanishing point
+    const NV = 11, gap = W * 0.10;
+    ctx.strokeStyle = 'rgba(255,96,220,0.75)'; ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(255,96,220,0.8)'; ctx.shadowBlur = 6;
     for (let j = -NV; j <= NV; j++) {
       const xb = bx + j * gap;
-      if (xb < -W * 0.6 || xb > W * 1.6) continue;
+      if (xb < -W * 0.7 || xb > W * 1.7) continue;
       ctx.beginPath(); ctx.moveTo(vx, vy); ctx.lineTo(xb, by); ctx.stroke();
     }
-    // --- horizontal lines: perspective-spaced (dense toward the horizon) and scrolling toward the camera ---
-    const phase = ((position / 70) % 1 + 1) % 1;      // 0..1 scroll offset; increases as you drive forward
-    for (let i = 1; i <= 20; i++) {
+    // cyan horizontal lines, perspective-spaced (dense toward the horizon), scrolling toward the camera as you drive
+    const phase = ((position / 70) % 1 + 1) % 1;
+    ctx.shadowColor = 'rgba(90,240,255,0.85)';
+    for (let i = 1; i <= 26; i++) {
       const d = i - phase; if (d <= 0) continue;
-      const t = d / (d + 2.4);                         // t in (0,1): small d -> near bottom, large d -> near horizon
+      const t = d / (d + 2.4);                          // small d -> near bottom, large d -> near horizon
       const yy = vy + (by - vy) * (1 - t);
-      const near = 1 - t;                              // 1 near camera, 0 at horizon
-      ctx.lineWidth = Math.max(1, 2.6 * near);
-      ctx.strokeStyle = `rgba(255,74,208,${0.24 + 0.5 * near})`;
+      const near = 1 - t;
+      ctx.lineWidth = Math.max(1.2, 3 * near);
+      ctx.shadowBlur = 5 * near;
+      ctx.strokeStyle = `rgba(90,240,255,${0.4 + 0.55 * near})`;
       ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke();
     }
+    ctx.shadowBlur = 0;
     ctx.restore();
   }
 
@@ -2573,7 +2562,7 @@ function render() {
     }
   }
 
-  if (!arcScene) { if (thirdPerson) drawChaseCar(camY, camZ); else drawPlayerCar(); }   // arcScene: no cockpit/dashboard
+  if (thirdPerson) drawChaseCar(camY, camZ); else drawPlayerCar();   // cockpit interior (shown in arcade too)
   // ---- city colour filter: grades the whole scene (road + cockpit together) ----
   if (!arcScene) {
     const F = FILTERS[filterIdx] || FILTERS[0];
@@ -3657,7 +3646,7 @@ function drawCar(car, b, fog, clipY, front, fade, bf){
     const refW = model.rear.naturalWidth || 572;
     // frames are union-bbox cropped (751px = the wide SIDE view); the rear car fills only ~45% of that,
     // so we size relative to the visible rear car, not the padded frame. tune live: window.__carW = 0.9
-    const CARW = (typeof window.__carW === 'number' ? window.__carW : 1.0);
+    const CARW = (typeof window.__carW === 'number' ? window.__carW : (gameMode === 'arcade' ? 0.82 : 1.0));   // arcade: a touch smaller so they sit right on the grid
     const scale = b.sw * CARW / refW;                      // uniform scale across angles (like the garage), grows with nearness
     const SQ = (typeof window.__carSq === 'number' ? window.__carSq : 1.0);        // vertical squash (1.0 = none; low render angle means it's not needed)
     let dw = frame.naturalWidth * scale, dh = frame.naturalHeight * scale * SQ;
