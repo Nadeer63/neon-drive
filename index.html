@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783793051";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783793536";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2140,6 +2140,7 @@ function render() {
   // PASS 1 — road, near to far. Record per-segment hill clip line for sprites.
   let maxY = H;
   let gNear = null, gFar = null, gNearN = -1, gFarN = -1;   // ARCADE grid-floor: near/far drawn road rows + their indices (for the converging grid + the road cut-out)
+  let lastRowSY = 1e9;                                      // ARCADE: last horizontal grid row's screen-Y — enforce a min gap so rows don't pile into a striped "wall" near the horizon
   for (let n = 0; n < DRAW_DIST; n++) {
     const a = pts[n].pj, b = pts[n + 1].pj;   // a = near edge, b = far edge
     pts[n].clip = maxY;
@@ -2229,8 +2230,7 @@ function render() {
       gFar = a; gFarN = n;
       // Menu reference (sampled from menu_bg_land_back2.png): dark-plum road fill (80,14,67),
       // soft-rose road lines (205,115,178), light-cyan grid (154,250,255), squares ~0.088W wide.
-      const ROW = (pts[n].seg.index % 2) === 0;                 // horizontal lines every 2 segments -> larger (squarer) cells
-      const rw = a.sw * 0.92, rwb = b.sw * 0.92;                // WIDE road band like the menu
+      const rw = a.sw * 0.62, rwb = b.sw * 0.62;                // road band sized to the menu (cyan grid dominates the width)
       // road FILL — dark plum band (matches the menu's between-lines colour)
       ctx.fillStyle = `rgba(80,14,67,${0.82 + fog * 0.15})`;
       poly(a.sx - rw, a.sy + 1, a.sx + rw, a.sy + 1, b.sx + rwb, b.sy, b.sx - rwb, b.sy);
@@ -2239,12 +2239,14 @@ function render() {
       ctx.fillStyle = `rgba(210,120,182,${0.6 + fog * 0.4})`;
       poly(a.sx - rw - ew, a.sy, a.sx - rw + ew, a.sy, b.sx - rwb + ew2, b.sy, b.sx - rwb - ew2, b.sy);
       poly(a.sx + rw - ew, a.sy, a.sx + rw + ew, a.sy, b.sx + rwb + ew2, b.sy, b.sx + rwb - ew2, b.sy);
-      // horizontal grid lines: light-CYAN outside the road, soft-ROSE over the road (no blue/pink mixing)
-      if (ROW) {
-        ctx.fillStyle = `rgba(154,250,255,${0.5 + fog * 0.5})`;
+      // horizontal grid lines: light-CYAN outside the road, soft-ROSE over the road (no blue/pink mixing).
+      // Enforce a MIN pixel gap so rows spread out toward the viewer instead of piling into a striped "wall" near the horizon.
+      if (lastRowSY - a.sy >= 8) {
+        lastRowSY = a.sy;
+        ctx.fillStyle = `rgba(154,250,255,${0.22 + fog * 0.68})`;             // fade toward the horizon so far rows don't pile into a bright striped band
         ctx.fillRect(0, a.sy - 1, Math.max(0, a.sx - rw), 2);                 // left of road
         ctx.fillRect(a.sx + rw, a.sy - 1, Math.max(0, W - (a.sx + rw)), 2);   // right of road
-        ctx.fillStyle = `rgba(205,115,178,${0.7 + fog * 0.3})`;
+        ctx.fillStyle = `rgba(205,115,178,${0.35 + fog * 0.5})`;
         ctx.fillRect(a.sx - rw, a.sy - 1, rw * 2, 2);                         // rose over the road
       }
     }
@@ -2257,7 +2259,7 @@ function render() {
     const vx = gFar.sx, vy = gFar.sy, bx = gNear.sx, by = H;
     ctx.save(); ctx.lineCap = 'butt';
     // bright CYAN vertical grid lines across the WHOLE floor, converging to the vanishing point
-    const rwNear = gNear.sw * 0.92;                             // road half-width at the near edge — cyan stays OUTSIDE this (no blue over the pink road)
+    const rwNear = gNear.sw * 0.62;                             // road half-width at the near edge — cyan stays OUTSIDE this (no blue over the pink road)
     ctx.strokeStyle = 'rgba(154,250,255,0.62)'; ctx.lineWidth = 1.5;
     const gap = W * 0.085;                                      // menu square width ~0.088W at the bottom
     for (let j = -13; j <= 13; j++) {
