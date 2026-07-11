@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783793954";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783795035";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2230,20 +2230,20 @@ function render() {
       gFar = a; gFarN = n;
       // Menu reference (sampled from menu_bg_land_back2.png): dark-plum road fill (80,14,67),
       // soft-rose road lines (205,115,178), light-cyan grid (154,250,255), squares ~0.088W wide.
-      // ONE unified grid (like the menu): centre lanes tinted plum, outer lanes plain — NO curb edges, NO separate road.
-      const rw = a.sw * 0.62, rwb = b.sw * 0.62;                // centre (pink) band half-width
-      // subtle plum TINT on the centre lanes — part of the same grid, not a raised road
-      ctx.fillStyle = `rgba(92,18,76,${0.5 + fog * 0.12})`;
+      // The PINK road covers the whole 4-lane road (±~1.0*sw) so the car + traffic always sit on PINK, never the cyan ground.
+      const rw = a.sw * 1.04, rwb = b.sw * 1.04;                // pink road half-width = road edge (+ a hair to cover car bodies)
+      // SOLID vivid magenta road fill (opaque, so bright cyan lines beside it can't bleed in and read as "blue mixed with pink")
+      ctx.fillStyle = `rgba(120,20,92,${0.92 + fog * 0.06})`;
       poly(a.sx - rw, a.sy + 1, a.sx + rw, a.sy + 1, b.sx + rwb, b.sy, b.sx - rwb, b.sy);
-      // horizontal grid lines (single grid): CYAN on the outer lanes, ROSE on the centre lanes.
+      // horizontal grid lines (single grid): CYAN on the ground, ROSE on the road — each strictly on its own side of the edge.
       // Enforce a MIN pixel gap so rows spread out toward the viewer instead of piling into a striped "wall" near the horizon.
       if (lastRowSY - a.sy >= 8) {
         lastRowSY = a.sy;
         ctx.fillStyle = `rgba(154,250,255,${0.22 + fog * 0.68})`;             // fade toward the horizon so far rows don't pile into a bright striped band
-        ctx.fillRect(0, a.sy - 1, Math.max(0, a.sx - rw), 2);                 // left of centre
-        ctx.fillRect(a.sx + rw, a.sy - 1, Math.max(0, W - (a.sx + rw)), 2);   // right of centre
-        ctx.fillStyle = `rgba(205,115,178,${0.3 + fog * 0.55})`;
-        ctx.fillRect(a.sx - rw, a.sy - 1, rw * 2, 2);                         // rose over the centre lanes
+        ctx.fillRect(0, a.sy - 1, Math.max(0, a.sx - rw), 2);                 // ground left of the road
+        ctx.fillRect(a.sx + rw, a.sy - 1, Math.max(0, W - (a.sx + rw)), 2);   // ground right of the road
+        ctx.fillStyle = `rgba(235,130,205,${0.4 + fog * 0.5})`;
+        ctx.fillRect(a.sx - rw, a.sy - 1, rw * 2, 2);                         // rose over the road
       }
     }
   }
@@ -2256,13 +2256,13 @@ function render() {
     ctx.save(); ctx.lineCap = 'butt';
     // ONE set of vertical grid lines at uniform spacing across the WHOLE floor, converging to the vanishing point.
     // Each line is ROSE if its column falls in the centre band, else CYAN — so the pink lines align with the grid (unified, not a separate road).
-    const rwNear = gNear.sw * 0.62;                            // centre-band half-width at the near edge
+    const rwNear = gNear.sw * 1.04;                           // road half-width at the near edge (matches the pink fill)
     ctx.lineWidth = 1.5;
     const gap = W * 0.085;                                      // menu square width ~0.088W at the bottom
     for (let j = -13; j <= 13; j++) {
       const xb = bx + j * gap;
       if (xb < -W * 0.7 || xb > W * 1.7) continue;
-      ctx.strokeStyle = (Math.abs(xb - bx) <= rwNear) ? 'rgba(205,115,178,0.6)' : 'rgba(154,250,255,0.6)';
+      ctx.strokeStyle = (Math.abs(xb - bx) <= rwNear) ? 'rgba(235,130,205,0.6)' : 'rgba(154,250,255,0.6)';
       ctx.beginPath(); ctx.moveTo(vx, vy); ctx.lineTo(xb, by); ctx.stroke();
     }
     ctx.restore();
