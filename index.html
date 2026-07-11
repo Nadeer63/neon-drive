@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783800725";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783800971";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2239,7 +2239,7 @@ function render() {
   if (arcScene && gNear && gFar && gNear.sy > gFar.sy + 20) {
     // Grid is centred but pans a DAMPED amount with steering (ARC_PAN) so the car visibly moves left/right
     // across the road without the full disorienting slide. Steer right -> world shifts left.
-    const ARC_PAN = 0.22;                                    // subtle: enough to SEE the car move, small enough that the grid never drags off-screen
+    const ARC_PAN = 0.1;                                     // very subtle hint of movement; larger values skew/drag the grid to the side
     // Use a STABLE constant near half-width — gNear.sw jittered every frame as segments scrolled past the camera,
     // which swung the blue edge lines left/right as you drove forward. gFar.sw (far end) is stable, so keep it.
     const swNear = W * 1.35;
@@ -3358,8 +3358,8 @@ function drawCrossroad(wx, z, pjy, kind, fog, clipY, camY, camZ, fade){
 
 function drawScene(sc, side, worldX, segPt, fog, camY, camZ, clipY, fade, city){
   const sp = { x: worldX + side * ROAD_W * sc.off, y: segPt.y, z: segPt.z };
-  // ARCADE: project scenery (palms) with the SAME damped offset as the grid (0.22x) so they pan together when steering
-  project(sp, (gameMode === 'arcade') ? playerX * ROAD_W * 0.22 : playerX * ROAD_W, camY, camZ);
+  // ARCADE: project scenery (palms) with the SAME damped offset as the grid (0.1x) so they pan together when steering
+  project(sp, (gameMode === 'arcade') ? playerX * ROAD_W * 0.1 : playerX * ROAD_W, camY, camZ);
   if (sp.scale <= 0 || sp.sy > H + 200 || sp.sx < -300 || sp.sx > W + 300) return;
   const unit = Math.max(1, sp.scale * ROAD_W * W / 2); // ~road half-width in px at this depth
   ctx.save();
