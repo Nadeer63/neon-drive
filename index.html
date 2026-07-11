@@ -2259,7 +2259,7 @@ function render() {
     // HORIZONTAL rows with GEOMETRIC perspective spacing so cells are SQUARE:
     // at depth t the column spacing is gap*t and the row spacing is span*t*rstep, so rstep = gap/span makes them equal.
     // Scrolls toward the camera with `position`.
-    const rstep = Math.min(0.5, gap / span);
+    const rstep = Math.min(0.5, (gap / span) * 0.85);        // 0.85 tuned so cells are BOXY (1:1); pure gap/span read slightly tall
     const phase = 1 - ((((position / (SEG_LEN * 4)) % 1) + 1) % 1);   // 0..1 scroll (rows advance toward the viewer)
     for (let i = 0; i < 90; i++) {
       const y = vy + span * Math.pow(1 - rstep, i + phase);
