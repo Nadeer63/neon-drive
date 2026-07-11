@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783803014";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783814265";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2249,7 +2249,7 @@ function render() {
     // at depth t the column spacing is gap*t and the row spacing is span*t*rstep, so rstep = gap/span makes them equal.
     // Scrolls toward the camera with `position`.
     const rstep = Math.min(0.5, (gap / span) * 0.85);        // 0.85 tuned so cells are BOXY (1:1); pure gap/span read slightly tall
-    const phase = 1 - ((((position / (SEG_LEN * 4)) % 1) + 1) % 1);   // 0..1 scroll (rows advance toward the viewer)
+    const phase = 1 - ((((position / (SEG_LEN * 9)) % 1) + 1) % 1);   // 0..1 scroll toward the viewer; SEG_LEN*9 keeps <0.5 cell/frame at speed so it moves SMOOTHLY (no wagon-wheel aliasing that reads as "frozen")
     let farY = by;                                           // farthest row drawn -> where the horizon line sits
     ctx.shadowBlur = glow;
     for (let i = 0; i < 90; i++) {
@@ -3354,9 +3354,8 @@ function drawCrossroad(wx, z, pjy, kind, fog, clipY, camY, camZ, fade){
 
 function drawScene(sc, side, worldX, segPt, fog, camY, camZ, clipY, fade, city){
   const sp = { x: worldX + side * ROAD_W * sc.off, y: segPt.y, z: segPt.z };
-  // ARCADE: the near roadside palms PARALLAX with steering (near things shift a lot) for a real sense of motion,
-  // while the grid LINES stay locked. Steer -> palms slide past, grid holds -> depth, not "dragging".
-  project(sp, (gameMode === 'arcade') ? playerX * ROAD_W * 0.55 : playerX * ROAD_W, camY, camZ);
+  // ARCADE: roadside palms hold still laterally (camX = 0) — nothing on the floor moves with the car when steering
+  project(sp, (gameMode === 'arcade') ? 0 : playerX * ROAD_W, camY, camZ);
   if (sp.scale <= 0 || sp.sy > H + 200 || sp.sx < -300 || sp.sx > W + 300) return;
   const unit = Math.max(1, sp.scale * ROAD_W * W / 2); // ~road half-width in px at this depth
   ctx.save();
