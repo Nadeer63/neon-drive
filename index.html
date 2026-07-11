@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783789249";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783789853";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1473,7 +1473,7 @@ function frame(t) {
       fpsT = 0; fpsN = 0;
     }
   }
-  PostFX.render();    // GPU neon bloom + CRT — arcade is a solid live canvas scene, so bloom makes the neon glow
+  if (gameMode !== 'arcade') PostFX.render();    // arcade canvas is transparent up top (menu image behind) -> skip post so it isn't blacked out
   requestAnimationFrame(frame);
 }
 
@@ -2019,15 +2019,16 @@ function render() {
   winColor = inCity ? theme.win : '255,238,180';
   wetRoad = inCity && theme.rain && cityExitZ >= 0 && position >= cityExitZ + 1500;   // wet rainy street
 
-  // sky gradient — city themed, default synthwave sunset, or ARCADE's own deep synthwave sky (SOLID, so the whole
-  // scene is drawn live on the canvas: it moves, cars sit on the road, and nothing from the menu bleeds through).
-  const skyCols = inCity ? theme.sky : arcScene ? ['#180b40', '#3a1470', '#7c2b80'] : ['#2a0a60', '#9c2e92', '#ffce5c'];
-  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.60);
-  sky.addColorStop(0, skyCols[0]); sky.addColorStop(0.55, skyCols[1]); sky.addColorStop(1, skyCols[2]);
-  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  // sky gradient — city themed or default synthwave sunset. ARCADE: transparent up top so the REAL menu artwork
+  // (its exact sun + buildings + sky) shows; we paint an opaque GROUND over the lower half for the moving grid.
+  const skyCols = inCity ? theme.sky : ['#2a0a60', '#9c2e92', '#ffce5c'];
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.58);
+  sky.addColorStop(0, skyCols[0]); sky.addColorStop(0.6, skyCols[1]); sky.addColorStop(1, skyCols[2]);
+  if (arcScene) ctx.clearRect(0, 0, W, H);           // transparent -> the real menu image (sun/buildings/sky) shows behind
+  else { ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H); }
 
-  // sparkling starfield for night cities + ARCADE
-  if ((inCity && theme.stars) || arcScene) {
+  // sparkling starfield for night cities (arcade uses the menu image's stars)
+  if (inCity && theme.stars) {
     for (let i = 0; i < 140; i++) {
       const sx = ((i * 73) % 100) / 100 * W, sy = ((i * 137) % 100) / 100 * H * 0.52;
       const tw = Math.sin(distance * 0.02 * (0.55 + (i % 6) * 0.16) + i * 1.7);   // per-star phase + speed
@@ -2049,9 +2050,8 @@ function render() {
   }
 
   // celestial body: moon for night cities, else a big striped synthwave sun
-  const sunY = arcScene ? H * 0.34 : H * 0.34;   // arcade: sun sits ON the horizon like the menu
-  const sunR = Math.min(W, H) * (arcScene ? 0.235 : (inCity && theme.moon ? 0.2 : 0.31));   // arcade: big prominent menu sun
-  if (inCity && theme.moon) {
+  const sunY = H * 0.34, sunR = Math.min(W, H) * (inCity && theme.moon ? 0.2 : 0.31);
+  if (arcScene) { /* the real menu image provides the sun */ } else if (inCity && theme.moon) {
     const mr = sunR, mx = W / 2, my = H * 0.32;                       // big moon where the sun used to be
     const glow = ctx.createRadialGradient(mx, my, mr*0.5, mx, my, mr*2.0);   // soft cool moonglow halo
     glow.addColorStop(0, 'rgba(205,218,255,0.4)'); glow.addColorStop(0.5, 'rgba(170,190,255,0.15)'); glow.addColorStop(1, 'rgba(170,190,255,0)');
@@ -2086,8 +2086,8 @@ function render() {
     stripedSun(H*0.49, sunR*0.4, '#ffb27a', '#ffe08a', '#fff6d0', -0.3, gapCol);     // smaller bright horizon sun
   }
 
-  // ===== ARCADE: neon WIREFRAME city skyline on the horizon (matches the menu's neon city) =====
-  if (arcScene) {
+  // ===== ARCADE skyline comes from the real menu artwork now (drawn buildings disabled) =====
+  if (false && arcScene) {
     const horizon = H * 0.52, N = 30, cellW = W / N;                 // buildings sit right on the horizon like the menu
     ctx.save();
     for (let i = 0; i < N; i++) {
@@ -2158,7 +2158,10 @@ function render() {
     const causeG = inCause(a.z);                 // causeway: ocean on both sides
     const isCross = pts[n].seg.cross && !causeG && gameMode !== 'arcade';  // no cross-streets over causeway water / arcade grid floor
     // smooth vertical water gradient (deeper toward the horizon) — no per-segment ripple band
-    if (!arcScene) {                             // arcScene: no ground fill — the CSS grid floor shows through
+    if (arcScene) {                              // arcScene: OPAQUE dark ground covers the menu image's (static) grid, so our MOVING grid replaces it — no doubling
+      ctx.fillStyle = '#0b0620';
+      ctx.fillRect(0, b.sy, W, a.sy - b.sy + 1);
+    } else {
     ctx.fillStyle = inTun ? '#0a0812' : causeG ? (dark ? '#0c3a73' : '#114a86') : harborG ? (dark ? '#0a2844' : '#0e3050') : (isCross ? '#0e0e17' : '#190643');
     ctx.fillRect(0, b.sy, W, a.sy - b.sy + 1);   // +1 overlaps ground segments (no sidewalk seam); the road poly above covers any bleed onto the road
     }
@@ -5420,7 +5423,7 @@ settings.addEventListener('click', e => { if (e.target === settings) closeSettin
 document.getElementById('setMenu').addEventListener('click', () => {
   settings.classList.add('hidden');
   document.body.classList.remove('arcadeScene');
-  document.querySelectorAll('#overlay .mPalm, #overlay .mGrid, #overlay .mGround, #overlay .mHorizon').forEach(el => el.style.display = '');   // restore the menu's CSS grid + palms
+  document.querySelectorAll('#overlay .mPalm, #overlay .mGrid, #overlay .mGround, #overlay .mHorizon, #mTrees').forEach(el => el.style.display = '');   // restore the menu's placed trees + CSS bits
   if (window.__mGridEl) { window.__mGridEl.style.animation = ''; window.__mGridEl.style.backgroundPositionY = ''; }   // restore the menu grid scroll
   document.getElementById('overlay').classList.remove('hidden');
   document.getElementById('hud').classList.add('hidden');
@@ -6053,8 +6056,9 @@ function beginRun(mode) {
   if (_scoreCountRAF) { cancelAnimationFrame(_scoreCountRAF); _scoreCountRAF = null; }   // stop the crash score count-up (+ its ticking sound)
   const _arc = (gameMode === 'arcade');
   document.body.classList.toggle('arcadeScene', _arc);                       // arcade drives over the real CSS menu scene
-  // arcade draws its OWN canvas floor (grid + road) + receding palms; hide the static CSS grid/ground/palms
-  document.querySelectorAll('#overlay .mPalm, #overlay .mGrid, #overlay .mGround, #overlay .mHorizon').forEach(el => el.style.display = _arc ? 'none' : '');
+  // arcade: keep the menu image backdrop (sun/buildings/sky), but hide its STATIC placed trees (#mTrees) — the
+  // arcade draws its own RECEDING palms + moving grid on top; also hide the old CSS scene bits.
+  document.querySelectorAll('#overlay .mPalm, #overlay .mGrid, #overlay .mGround, #overlay .mHorizon, #mTrees').forEach(el => el.style.display = _arc ? 'none' : '');
   document.getElementById('overlay').classList.toggle('hidden', !_arc);      // keep the menu ART visible in arcade (UI hidden via CSS)
   document.getElementById('busted').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
@@ -6079,7 +6083,7 @@ updateArcadeBest();
 })();
 document.getElementById('bustedMenu').addEventListener('click', () => {
   document.body.classList.remove('arcadeScene');
-  document.querySelectorAll('#overlay .mPalm, #overlay .mGrid, #overlay .mGround, #overlay .mHorizon').forEach(el => el.style.display = '');   // restore the menu's CSS grid + palms
+  document.querySelectorAll('#overlay .mPalm, #overlay .mGrid, #overlay .mGround, #overlay .mHorizon, #mTrees').forEach(el => el.style.display = '');   // restore the menu's placed trees + CSS bits
   if (window.__mGridEl) { window.__mGridEl.style.animation = ''; window.__mGridEl.style.backgroundPositionY = ''; }   // restore the menu grid scroll
   document.getElementById('busted').classList.add('hidden');
   document.getElementById('overlay').classList.remove('hidden');
