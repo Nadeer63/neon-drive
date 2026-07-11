@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783786371";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783787201";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1473,7 +1473,7 @@ function frame(t) {
       fpsT = 0; fpsN = 0;
     }
   }
-  PostFX.render();    // GPU post-processing (neon bloom + CRT) — arcade is now a solid canvas scene, so bloom makes the neon glow
+  if (gameMode !== 'arcade') PostFX.render();    // arcade canvas is transparent (CSS scene behind) -> skip GPU post so transparency is kept
   requestAnimationFrame(frame);
 }
 
@@ -2019,15 +2019,16 @@ function render() {
   winColor = inCity ? theme.win : '255,238,180';
   wetRoad = inCity && theme.rain && cityExitZ >= 0 && position >= cityExitZ + 1500;   // wet rainy street
 
-  // sky gradient — city themed, or the default synthwave sunset. ARCADE = its OWN deep-space synthwave sky
-  // (SOLID, so the whole scene is painted on the canvas and the main-page scene can never bleed through).
-  const skyCols = inCity ? theme.sky : arcScene ? ['#140a3a', '#3b1370', '#8a2f86'] : ['#2a0a60', '#9c2e92', '#ffce5c'];
-  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.62);
-  sky.addColorStop(0, skyCols[0]); sky.addColorStop(0.55, skyCols[1]); sky.addColorStop(1, skyCols[2]);
-  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  // sky gradient — city themed, or the default synthwave sunset. ARCADE = TRANSPARENT so the REAL CSS menu scene
+  // (its grid, sun, city, palms, stars) shows through; we only draw the cars + cockpit on top.
+  const skyCols = inCity ? theme.sky : ['#2a0a60', '#9c2e92', '#ffce5c'];
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.58);
+  sky.addColorStop(0, skyCols[0]); sky.addColorStop(0.6, skyCols[1]); sky.addColorStop(1, skyCols[2]);
+  if (arcScene) ctx.clearRect(0, 0, W, H);
+  else { ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H); }
 
-  // sparkling starfield for night cities + ARCADE — each star twinkles at its own speed, the brightest flare with a cross
-  if ((inCity && theme.stars) || arcScene) {
+  // sparkling starfield for night cities (arcade uses the CSS scene's own stars)
+  if (inCity && theme.stars) {
     for (let i = 0; i < 140; i++) {
       const sx = ((i * 73) % 100) / 100 * W, sy = ((i * 137) % 100) / 100 * H * 0.52;
       const tw = Math.sin(distance * 0.02 * (0.55 + (i % 6) * 0.16) + i * 1.7);   // per-star phase + speed
@@ -2048,9 +2049,9 @@ function render() {
     ctx.globalAlpha = 1;
   }
 
-  // celestial body: moon for night cities, else a big striped synthwave sun
+  // celestial body: moon for night cities, else a big striped synthwave sun (arcade uses the CSS scene's sun)
   const sunY = H * 0.34, sunR = Math.min(W, H) * (inCity && theme.moon ? 0.2 : 0.31);
-  if (inCity && theme.moon) {
+  if (arcScene) { /* CSS menu scene provides the sun */ } else if (inCity && theme.moon) {
     const mr = sunR, mx = W / 2, my = H * 0.32;                       // big moon where the sun used to be
     const glow = ctx.createRadialGradient(mx, my, mr*0.5, mx, my, mr*2.0);   // soft cool moonglow halo
     glow.addColorStop(0, 'rgba(205,218,255,0.4)'); glow.addColorStop(0.5, 'rgba(170,190,255,0.15)'); glow.addColorStop(1, 'rgba(170,190,255,0)');
@@ -2085,8 +2086,8 @@ function render() {
     stripedSun(H*0.49, sunR*0.4, '#ffb27a', '#ffe08a', '#fff6d0', -0.3, gapCol);     // smaller bright horizon sun
   }
 
-  // ===== ARCADE: neon WIREFRAME city skyline on the horizon (drawn on canvas — the whole scene is self-contained) =====
-  if (arcScene) {
+  // ===== ARCADE: skyline comes from the CSS menu scene now (disabled) =====
+  if (false && arcScene) {
     const horizon = H * 0.55, N = 34, cellW = W / N;
     ctx.save(); ctx.lineWidth = 1.4;
     for (let i = 0; i < N; i++) {
@@ -2219,8 +2220,8 @@ function render() {
     }
     }
 
-    // ===== ARCADE neon FLOOR — drawn in the GAME's projection so palms plant on it and the car drives on it =====
-    if (arcScene) {
+    // ===== ARCADE floor comes from the CSS menu grid now (canvas floor disabled) =====
+    if (false && arcScene) {
       if (!gNear) { gNear = a; gNearN = n; }
       gFar = a; gFarN = n;
       const ROW = (pts[n].seg.index % 3) === 0;                 // a grid row every 3 segments
@@ -2246,7 +2247,7 @@ function render() {
   // ARCADE neon-grid FLOOR — drawn ON the canvas in the GAME's own projection (shares the road vanishing point),
   // so traffic cars sit exactly ON it (the fixed CSS grid didn't match, which made the cars float). Cyan horizontals
   // + magenta perspective lines, scrolling toward the camera. Cars + cockpit draw on top of it.
-  if (arcScene && gNear && gFar && gNear.sy > gFar.sy + 20) {
+  if (false && arcScene && gNear && gFar && gNear.sy > gFar.sy + 20) {
     // cyan VERTICAL grid lines across the whole floor, converging to the road's vanishing point (completes the grid)
     const vx = gFar.sx, vy = gFar.sy, bx = gNear.sx, by = H;
     ctx.save(); ctx.lineCap = 'butt';
@@ -2438,7 +2439,7 @@ function render() {
 
     if (inCause(z)) continue;                             // causeway palm median is drawn in pass 3, depth-sorted with the cars
     for (const sc of seg.scenery) {
-      if (arcScene && sc.type !== 'palm') continue;                    // arcScene: keep only the receding canvas palms (motion); CSS provides sun/skyline/stars
+      if (arcScene) continue;                                          // arcScene: the CSS menu scene provides ALL scenery (grid, palms, city, sun)
       if (gameMode === 'arcade' && sc.type === 'building') continue;   // arcade: NO buildings — palm-lined neon strip
       if (district && sc.type === 'building') continue;   // dense skyline replaces the sparse buildings
       const hidePalm = sc.type === 'palm' && (nearTunnel || (city && !theme.palms));
