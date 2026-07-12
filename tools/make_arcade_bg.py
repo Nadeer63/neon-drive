@@ -27,8 +27,8 @@ from PIL import Image
 # The push (last column) must keep the map monotonic, or columns would fold over each other and the skyline
 # would smear. That needs  A * pi / (halfW - R) < 1  ->  A < ~183px landscape, ~104px portrait. Well clear.
 JOBS = [
-    ('assets/menu_bg_land_back2.png',     'assets/menu_bg_land_arcade.png',     0.500, 0.297, 140),
-    ('assets/menu_bg_portrait_back2.png', 'assets/menu_bg_portrait_arcade.png', 0.500, 0.084, 86),
+    ('assets/menu_bg_land_back2.png',     'assets/menu_bg_land_arcade.png',     0.500, 0.297, 170),
+    ('assets/menu_bg_portrait_back2.png', 'assets/menu_bg_portrait_arcade.png', 0.500, 0.084, 100),
 ]
 
 
