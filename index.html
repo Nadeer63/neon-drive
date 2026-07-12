@@ -6449,7 +6449,24 @@ updateMenuCar();                                             // reflect the save
   let current = parseInt(localStorage.getItem('sunVizStyle') || '0', 10); if (!(current >= 0 && current < STYLES.length)) current = 0;
   const label = document.querySelector('#overlay .mVizLabel');
   function showLabel(){ if (!label) return; label.textContent = (current + 1) + ' / ' + STYLES.length + '  ·  ' + STYLES[current].name; label.classList.add('show'); clearTimeout(showLabel._t); showLabel._t = setTimeout(() => label.classList.remove('show'), 2400); }
-  function cycle(){ current = (current + 1) % STYLES.length; try { localStorage.setItem('sunVizStyle', current); } catch (e) {} if (smooth) smooth.fill(0); showLabel(); }
+  // ---- auto-cycle every 20s, CROSSFADING between the outgoing and incoming style ----
+  // Both styles are drawn on the changeover frame, the old one fading out as the new one fades in (via
+  // globalAlpha, which scales whatever alpha each style paints with). A plain switch popped one ring off
+  // and another on mid-beat.
+  // NOTE: no smooth.fill(0) here. The old cycle() zeroed the spectrum so the incoming style didn't inherit
+  // the outgoing one's bars — but that would blank BOTH halves of a crossfade and make it flicker. The
+  // spectrum is shared and continuous, which is what makes the two rings dissolve into each other.
+  const VIZ_AUTO_MS = 20000, VIZ_FADE_MS = 1200;
+  let vizPrev = -1, vizFadeAt = 0, vizLastSwitch = performance.now();
+  function goToStyle(next, persist){
+    vizPrev = current; current = ((next % STYLES.length) + STYLES.length) % STYLES.length;
+    vizFadeAt = performance.now(); vizLastSwitch = vizFadeAt;
+    // Only a deliberate TAP is remembered. Persisting the auto-cycle would mean the style you land on is
+    // just wherever the 20s timer happened to stop — and it would drift every session.
+    if (persist) { try { localStorage.setItem('sunVizStyle', current); } catch (e) {} }
+    showLabel();
+  }
+  function cycle(){ goToStyle(current + 1, true); }
   ov.addEventListener('pointerdown', (e) => {
     if (ov.classList.contains('hidden') || !sunView) return;
     if (e.target.closest('button, a, input, select, textarea, .btn, #topNav, #devOpen')) return;
@@ -6473,7 +6490,24 @@ updateMenuCar();                                             // reflect the save
     }
     if (energy < 0.008) return;                                       // silent -> nothing (hidden behind the sun)
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    try { STYLES[current].draw(t); } catch (e) {}
+    // Advance on the 20s timer. Checked AFTER the silence guard, so a muted/paused track doesn't quietly
+    // cycle through styles you never see — the clock only runs while the ring is actually on screen.
+    const now = performance.now();
+    if (now - vizLastSwitch >= VIZ_AUTO_MS) goToStyle(current + 1, false);
+    // crossfade: outgoing style fades out under the incoming one
+    const u = vizPrev >= 0 ? Math.min(1, (now - vizFadeAt) / VIZ_FADE_MS) : 1;
+    const e = u * u * (3 - 2 * u);                                    // smoothstep
+    window.__vizDbg = { style: current, name: STYLES[current].name, from: vizPrev, mixing: u < 1, u: +u.toFixed(2) };   // dev hook
+    if (u < 1) {
+      ctx.globalAlpha = 1 - e;
+      try { STYLES[vizPrev].draw(t); } catch (err) {}
+      ctx.globalAlpha = e;
+      try { STYLES[current].draw(t); } catch (err) {}
+      ctx.globalAlpha = 1;
+    } else {
+      vizPrev = -1;
+      try { STYLES[current].draw(t); } catch (err) {}
+    }
   }
   requestAnimationFrame(frame);
 })();
