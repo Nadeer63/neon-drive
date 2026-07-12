@@ -6458,13 +6458,13 @@ updateMenuCar();                                             // reflect the save
   // spectrum is shared and continuous, which is what makes the two rings dissolve into each other.
   const VIZ_AUTO_MS = 20000, VIZ_FADE_MS = 1200;
   let vizPrev = -1, vizFadeAt = 0, vizLastSwitch = performance.now();
-  function goToStyle(next, persist){
+  // `manual` = you tapped the sun. Only a deliberate tap names the style and is remembered:
+  //   - the auto-cycle stays SILENT, so the name doesn't pop up over the menu every 20s unasked
+  //   - persisting the auto-cycle would mean the style you reload into is just wherever the timer stopped
+  function goToStyle(next, manual){
     vizPrev = current; current = ((next % STYLES.length) + STYLES.length) % STYLES.length;
     vizFadeAt = performance.now(); vizLastSwitch = vizFadeAt;
-    // Only a deliberate TAP is remembered. Persisting the auto-cycle would mean the style you land on is
-    // just wherever the 20s timer happened to stop — and it would drift every session.
-    if (persist) { try { localStorage.setItem('sunVizStyle', current); } catch (e) {} }
-    showLabel();
+    if (manual) { try { localStorage.setItem('sunVizStyle', current); } catch (e) {} showLabel(); }
   }
   function cycle(){ goToStyle(current + 1, true); }
   ov.addEventListener('pointerdown', (e) => {
