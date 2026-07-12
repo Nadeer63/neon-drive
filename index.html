@@ -422,6 +422,14 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   #garageInterior:hover { border-color: rgba(0,240,255,.45); background: linear-gradient(180deg, rgba(0,240,255,.12), rgba(0,240,255,.03)); transform: translateY(-1px); }
   #overlay #devOpen { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); margin: 0; opacity: .45; transition: opacity .15s; }
   #overlay #devOpen:hover { opacity: 1; }
+  /* The tree editor used to be reachable ONLY by typing 6363 — impossible on a phone, which has no
+     keyboard on the menu. This is the same editor, opened with a button. */
+  #overlay #treeOpen { position: fixed; bottom: 16px; right: 14px; margin: 0; opacity: .55; transition: opacity .15s; }
+  #overlay #treeOpen:hover { opacity: 1; }
+  body.arcadeScene #overlay > #treeOpen { display: none !important; }
+  /* While editing, the browser must not steal the two-finger gesture for its own page zoom, or the pinch
+     never reaches us. touch-action:none hands every touch to the editor. */
+  #overlay.treeedit, #overlay.treeedit #mTrees { touch-action: none; }
   /* ---- store ---- */
   #storeShowcase { position: fixed; inset: 0; z-index: 13; display: flex; align-items: center; justify-content: center; font-family: 'Aldrich', monospace;
     background: radial-gradient(ellipse 100% 80% at 50% 18%, rgba(26,22,56,.72), rgba(6,7,16,1) 64%), #05060e; }
@@ -857,6 +865,7 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <div class="arcBest" id="arcadeBest">BEST&nbsp;&nbsp;0</div>
   <div class="hint">◄ ► / A D steer &nbsp;·&nbsp; ▲ / W to speed up &nbsp;·&nbsp; ▼ / S brake</div>
   <button id="devOpen">⚙ DEV · TRAFFIC PATTERNS</button>
+  <button id="treeOpen">🌴 EDIT TREES</button>
 </div>
 <div id="carShowcase" class="hidden">
   <div class="ibox">
@@ -7232,18 +7241,70 @@ requestAnimationFrame(frame);
       render(); save(); e.preventDefault();
     }
   });
+  // ---- touch/mouse editing: tap to select, drag to move, TAP EMPTY SPACE TO PLACE, PINCH TO RESIZE ----
+  var ptrs = new Map(), pinch = null, tapPlace = null;
+  function pinchDist(){ var a=Array.from(ptrs.values()); return Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y); }
+  function pinchMid(){ var a=Array.from(ptrs.values()); return {x:(a[0].x+a[1].x)/2, y:(a[0].y+a[1].y)/2}; }
+  function nearestTree(px,py){                       // pinch anywhere: grab the tree closest to your fingers
+    var r=overlay.getBoundingClientRect(), best=-1, bd=1e9;
+    trees.forEach(function(t,i){
+      var tx=r.left+t.x/100*r.width, ty=r.top+(1-t.y/100)*r.height, d=Math.hypot(tx-px,ty-py);
+      if(d<bd){ bd=d; best=i; }
+    });
+    return best;
+  }
   host.addEventListener('pointerdown',function(e){
-    if(!dev) return; var el=e.target.closest('.mTreeEl'); if(!el) return;
-    sel=+el.dataset.i; var r=overlay.getBoundingClientRect();
-    drag={ox:e.clientX,oy:e.clientY,sx:trees[sel].x,sy:trees[sel].y,W:r.width,H:r.height};
+    if(!dev) return;
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===2){                                // second finger down -> start a pinch, cancel the drag
+      drag=null; tapPlace=null;                       // ...and it was never a tap-to-place
+      if(sel<0){ var m=pinchMid(); sel=nearestTree(m.x,m.y); render(); }
+      if(sel>=0) pinch={d0:pinchDist(), s0:trees[sel].s};
+      e.preventDefault();
+      return;
+    }
+    var el=e.target.closest('.mTreeEl');
+    if(!el){
+      // Empty ground: ARM a placement, don't place yet. Placing on pointerDOWN meant the FIRST finger of a
+      // two-finger pinch dropped an unwanted tree before the second finger ever landed. It's only a "tap to
+      // place" if this finger goes down and comes back up alone, without moving.
+      tapPlace={x:e.clientX, y:e.clientY};
+      e.preventDefault();
+      return;
+    }
+    tapPlace=null;
+    sel=+el.dataset.i; var rr=overlay.getBoundingClientRect();
+    drag={ox:e.clientX,oy:e.clientY,sx:trees[sel].x,sy:trees[sel].y,W:rr.width,H:rr.height};
     render(); e.preventDefault();
   });
-  addEventListener('pointermove',function(e){ if(!drag||sel<0) return;
+  addEventListener('pointermove',function(e){
+    if(ptrs.has(e.pointerId)) ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(tapPlace && Math.hypot(e.clientX-tapPlace.x, e.clientY-tapPlace.y) > 8) tapPlace=null;   // a drag, not a tap
+    if(pinch && sel>=0 && ptrs.size>=2){              // two fingers apart = bigger, together = smaller
+      var k = pinchDist()/Math.max(1,pinch.d0);
+      trees[sel].s = Math.max(1, Math.min(95, +(pinch.s0*k).toFixed(2)));
+      render(); e.preventDefault();
+      return;
+    }
+    if(!drag||sel<0) return;
     trees[sel].x=Math.max(-15,Math.min(115, drag.sx+(e.clientX-drag.ox)/drag.W*100));
     trees[sel].y=Math.max(-15,Math.min(105, drag.sy-(e.clientY-drag.oy)/drag.H*100));
     render();
   });
-  addEventListener('pointerup',function(){ if(drag){ drag=null; save(); } });
+  function endPtr(e){
+    ptrs.delete(e.pointerId);
+    if(pinch && ptrs.size<2){ pinch=null; save(); }   // lifting a finger ends the pinch and commits the size
+    if(drag && ptrs.size===0){ drag=null; save(); }
+    if(tapPlace && ptrs.size===0){                    // clean single tap on empty ground -> place a tree here
+      var r=overlay.getBoundingClientRect();
+      trees.push({ x:+(((tapPlace.x-r.left)/r.width)*100).toFixed(2),
+                   y:+((1-(tapPlace.y-r.top)/r.height)*100).toFixed(2),
+                   s:(sel>=0&&trees[sel]?trees[sel].s:26), flip:false });
+      sel=trees.length-1; tapPlace=null; save(); render();
+    }
+  }
+  addEventListener('pointerup',endPtr);
+  addEventListener('pointercancel',endPtr);
   if(panel){
     panel.innerHTML='<h4>&#127796; TREE EDITOR</h4>'
       +'<div class="sel-info" id="dvInfo"></div>'
@@ -7252,7 +7313,7 @@ requestAnimationFrame(frame);
       +'<div class="row"><button id="dvMirL">&#8644; Mirror L&rarr;R</button><button id="dvMirR">Mirror R&rarr;L &#8644;</button></div>'
       +'<div class="row">Size<input id="dvSize" type="range" min="1" max="95" step="0.5"></div>'
       +'<div class="row"><button id="dvReset" class="warn">Reset all</button><button id="dvExit">Exit</button></div>'
-      +'<div class="hint">Click a tree &rarr; drag to move. Arrows nudge (Shift = faster), +/- resize. Size slider resizes. Delete key removes. Type 6363 to toggle. Auto-saves.</div>';
+      +'<div class="hint"><b>Touch:</b> tap a tree to select &middot; drag to move &middot; <b>pinch with two fingers to resize</b> &middot; tap empty ground to place a new tree &middot; Delete removes the selected one.<br><b>Keys:</b> arrows nudge (Shift = faster), +/- resize, Delete removes. Auto-saves.</div>';
     var q=function(s){return panel.querySelector(s);};
     q('#dvAdd').onclick=function(){ trees.push({x:50,y:12,s:30,flip:false}); sel=trees.length-1; save(); render(); };
     q('#dvDup').onclick=function(){ if(sel<0)return; var t=Object.assign({},trees[sel]); t.x+=4; trees.push(t); sel=trees.length-1; save(); render(); };
@@ -7265,6 +7326,8 @@ requestAnimationFrame(frame);
     q('#dvReset').onclick=function(){ if(!confirm('Reset all trees to the default avenue?'))return; localStorage.removeItem(KEY()); trees=defaults(land()); sel=-1; save(); render(); };
     q('#dvExit').onclick=function(){ setDev(false); };
   }
+  var openBtn=document.getElementById('treeOpen');
+  if(openBtn) openBtn.addEventListener('click', function(e){ e.stopPropagation(); setDev(!dev); });
   var wasLand=land();
   addEventListener('resize',function(){ if(land()!==wasLand){ wasLand=land(); trees=load(); sel=-1; render(); } });
   render();
