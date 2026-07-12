@@ -51,13 +51,13 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
      floor and neon grid — slams on top of the menu image's baked-in pink road. Same city, same sun, same
      sky (it's one image, shared), but the GROUND under the skyline changes in a single frame, and that hard
      cut is what makes the entry feel abrupt.
-     Fade the canvas up instead: the menu road shows through and dissolves into the neon grid beneath the
-     city. Opacity only — NOT transform. A transform on #game would slide the grid off the buildings it's
-     drawn to sit under (the canvas and the backdrop share a vanishing point), which is exactly the artifact
-     that killed the camera-punch version. */
-  body.cityIn #game { animation: cityIn 560ms ease-out 1 forwards; }
-  @keyframes cityIn { from { opacity: 0; } to { opacity: 1; } }
-  /* and fade the menu's own UI out rather than letting it vanish in one frame */
+     So the FLOOR fades up while the menu road shows through and dissolves into the neon grid beneath the
+     city. It is done in canvas (the `cityFade` global, applied to the floor fill + grid only) and NOT by
+     fading #game: the whole canvas also carries the palms, the traffic and the cockpit, so fading it
+     dragged the trees into the transition too. And never a transform on #game — that would slide the grid
+     off the buildings it is drawn to sit under (canvas and backdrop share a vanishing point), which is
+     exactly the artifact that killed the camera-punch version. */
+  /* fade the menu's own UI out rather than letting it vanish in one frame */
   body.arcadeScene.cityIn #overlay > h1,
   body.arcadeScene.cityIn #overlay > p,
   body.arcadeScene.cityIn #overlay > .btn,
@@ -1422,6 +1422,10 @@ let trafficClear = 0;                  // >0 = road is cleared (no traffic drawn
 let trafficFadeIn = 0;                 // >0 = traffic is fading back in after a cleared-road breather (so it doesn't pop)
 let trafficThin = 0;                   // >0 = 5k milestone: most cars fade OUT (keep a few) then fade back in — "a bit of cars"
 let boostMph = 0;                      // X/Square: each press adds +15 mph (stacks toward 300), fades over time
+// 0..1 — how far the arcade FLOOR has faded up over the menu image's baked road. 1 = normal.
+// Only the floor reads this; the palms, traffic and cockpit are drawn at full strength regardless, so the
+// transition never drags the trees with it.
+let cityFade = 1;
 window.__freeze = function(v){ dbgFreeze = v !== false; };
 window.__city = function(i){
   i = ((i % CITIES.length) + CITIES.length) % CITIES.length;
@@ -2227,8 +2231,13 @@ function render() {
     const isCross = pts[n].seg.cross && !causeG && gameMode !== 'arcade';  // no cross-streets over causeway water / arcade grid floor
     // smooth vertical water gradient (deeper toward the horizon) — no per-segment ripple band
     {                                            // arcade fills an OPAQUE dark floor too, so the flat menu-image road below the horizon can't show through and "double up"
+    // cityFade < 1 while entering arcade: hold this floor back so the menu image's baked road shows
+    // through and dissolves into the neon grid. It fades the FLOOR ONLY — palms, cars and the cockpit
+    // are drawn elsewhere and are never touched by it.
+    if (arcScene && cityFade < 1) ctx.globalAlpha = cityFade;
     ctx.fillStyle = arcScene ? '#16082c' : inTun ? '#0a0812' : causeG ? (dark ? '#0c3a73' : '#114a86') : harborG ? (dark ? '#0a2844' : '#0e3050') : (isCross ? '#0e0e17' : '#190643');
     ctx.fillRect(0, b.sy, W, a.sy - b.sy + 1);   // +1 overlaps ground segments (no sidewalk seam); the road poly above covers any bleed onto the road
+    ctx.globalAlpha = 1;
     }
     if (harborG && !dark) { ctx.fillStyle = 'rgba(140,195,235,0.07)'; ctx.fillRect(0, b.sy, W, Math.max(1, (a.sy-b.sy)*0.4)); } // ripple
     if (causeG && fog > 0.3) { ctx.fillStyle = `rgba(255,150,105,${(fog - 0.3) * 0.22})`; ctx.fillRect(0, b.sy, W, a.sy - b.sy + 1); }   // warm sunset glow reflected on the far water
@@ -2304,6 +2313,7 @@ function render() {
   // so traffic cars sit exactly ON it (the fixed CSS grid didn't match, which made the cars float). Cyan horizontals
   // + magenta perspective lines, scrolling toward the camera. Cars + cockpit draw on top of it.
   if (arcScene && gNear && gFar && gNear.sy > gFar.sy + 20) {
+    ctx.globalAlpha = cityFade;                  // fades the FLOOR ONLY on entry (palms/cars/cockpit untouched)
     // neon palette sampled straight out of assets/menu_bg_land_back2.png so the arcade floor
     // reads identically to the menu's grid (ground base #16082c is set on the fill above).
     // CYAN comes from the menu's background art (assets/menu_bg_land_back2.png) -> #41edf1.
@@ -2642,6 +2652,7 @@ function render() {
     }
     ctx.stroke();
     ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;                         // end of the floor: everything after this draws at full strength
 
     // ---- .mCRT, the last menu layer the arcade floor wasn't getting ----
     // The menu's CRT overlay carries `box-shadow: inset 0 0 180px 40px rgba(3,1,14,.7)` — a heavy
@@ -6602,7 +6613,9 @@ const BLK_STYLES = [
   { name:'GHOST / BARELY THERE', px:24, glow:10, shape:'frame',
     L:[{t:'fill',c:C.dark,w:12},{t:'stroke',c:C.cyan,w:2},{t:'stroke',c:C.pink,w:2}] },
 ];
-let blkStyle = Math.min(BLK_STYLES.length - 1, Math.max(0, parseInt(localStorage.getItem('blkStyle') || '0', 10) || 0));
+const BLK_DEFAULT = 19;                                      // style 20, GHOST / BARELY THERE — the one you picked
+let blkStyle = Math.min(BLK_STYLES.length - 1, Math.max(0,
+  localStorage.getItem('blkStyle') !== null ? (parseInt(localStorage.getItem('blkStyle'), 10) || 0) : BLK_DEFAULT));
 // Add one tile's shape to the CURRENT path. Stroked shapes sit on the half-pixel so the line stays crisp.
 function blkShape(ctx, shape, x, y, s, stroked) {
   const o = stroked ? 0.5 : 0;
@@ -6714,18 +6727,28 @@ window.addEventListener('keydown', e => {
   }
   playArcadeIntro();
 });
-const CITY_IN_MS = 600;                                      // must outlast the cityIn / menuOut CSS animations
+const CITY_IN_MS = 600;                                      // must outlast the menuOut CSS animation
+const CITY_FADE_MS = 560;                                    // how long the arcade FLOOR takes to fade up
 // The full menu -> arcade transition: the city's ground dissolves into the neon grid, and the cockpit
 // glitches in out of blocks on top of it. Factored out so pressing U can replay the whole thing.
 function playArcadeIntro() {
   const b = document.body;
   // Re-adding a class that's already there does NOT restart a CSS animation. Drop it, force a reflow to
-  // flush the removal, then re-add — otherwise a second U press would replay the blocks but not the city.
+  // flush the removal, then re-add — otherwise a second U press would replay the blocks but not the menu UI.
   b.classList.remove('cityIn');
   void b.offsetWidth;
   b.classList.add('cityIn');
   clearTimeout(playArcadeIntro._t);
   playArcadeIntro._t = setTimeout(() => b.classList.remove('cityIn'), CITY_IN_MS);
+  // Fade the arcade FLOOR up in canvas — not the whole #game element. The canvas also carries the palms,
+  // the traffic and the cockpit, so fading the element pulled the trees into the transition with it.
+  const t0 = performance.now();
+  cityFade = 0;
+  (function fade() {
+    const u = Math.min(1, (performance.now() - t0) / CITY_FADE_MS);
+    cityFade = u * u * (3 - 2 * u);                            // smoothstep
+    if (u < 1) requestAnimationFrame(fade); else cityFade = 1;
+  })();
   cockpitGlitchIn();
 }
 document.getElementById('arcadeBtn').addEventListener('click', () => {
