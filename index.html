@@ -6659,9 +6659,15 @@ const BLK_STYLES = [
   { name:'GHOST / BARELY THERE', px:24, glow:10, shape:'frame',
     L:[{t:'fill',c:C.dark,w:12},{t:'stroke',c:C.cyan,w:2},{t:'stroke',c:C.pink,w:2}] },
 ];
-const BLK_DEFAULT = 19;                                      // style 20, GHOST / BARELY THERE — the one you picked
+// Style 20, GHOST / BARELY THERE — the interior glitch you picked.
+// NOTE the storage key is VERSIONED (…_v2). While you were cycling with I, every press wrote the old
+// `blkStyle` key, so a browser that had experimented was pinned to whatever it last landed on and ignored
+// this default entirely — which is why the interior looked "changed" even though the code never was.
+// Bumping the key retires those stale picks so the defaults below actually take effect.
+const BLK_DEFAULT = 19;
+const blkSaved = localStorage.getItem('blkStyle_v2');
 let blkStyle = Math.min(BLK_STYLES.length - 1, Math.max(0,
-  localStorage.getItem('blkStyle') !== null ? (parseInt(localStorage.getItem('blkStyle'), 10) || 0) : BLK_DEFAULT));
+  blkSaved !== null ? (parseInt(blkSaved, 10) || 0) : BLK_DEFAULT));
 // Add one tile's shape to the CURRENT path. Stroked shapes sit on the half-pixel so the line stays crisp.
 function blkShape(ctx, shape, x, y, s, stroked) {
   const o = stroked ? 0.5 : 0;
@@ -6770,11 +6776,11 @@ window.addEventListener('keydown', e => {
   const nb = BLK_STYLES.length, ns = SKY_STYLES.length;
   if (k === 'i') {
     skyStyle = (skyStyle + (e.shiftKey ? ns - 1 : 1)) % ns;
-    localStorage.setItem('skyStyle', String(skyStyle));
+    localStorage.setItem('skyStyle_v2', String(skyStyle));
     blkToast(`SKYLINE  ${skyStyle + 1}/${ns}  ·  ${SKY_STYLES[skyStyle].name}`);
   } else if (k === 'b') {
     blkStyle = (blkStyle + (e.shiftKey ? nb - 1 : 1)) % nb;
-    localStorage.setItem('blkStyle', String(blkStyle));
+    localStorage.setItem('blkStyle_v2', String(blkStyle));
     blkToast(`BLOCKS  ${blkStyle + 1}/${nb}  ·  ${BLK_STYLES[blkStyle].name}`);
   } else {
     blkToast(`REPLAY  ·  SKY ${skyStyle + 1} ${SKY_STYLES[skyStyle].name}  +  BLK ${blkStyle + 1} ${BLK_STYLES[blkStyle].name}`);
@@ -6808,9 +6814,10 @@ const SKY_STYLES = [
   { name:'TILT SETTLE',    kf:'sky19', ms:800, e:'cubic-bezier(.16,.9,.2,1)' },
   { name:'VERTICAL STRETCH',kf:'sky20',ms:800, e:'cubic-bezier(.2,.85,.2,1)' },
 ];
-const SKY_DEFAULT = 0;
+const SKY_DEFAULT = 15;                                      // skyline 16, BLUR IN — the one you picked
+const skySaved = localStorage.getItem('skyStyle_v2');
 let skyStyle = Math.min(SKY_STYLES.length - 1, Math.max(0,
-  localStorage.getItem('skyStyle') !== null ? (parseInt(localStorage.getItem('skyStyle'), 10) || 0) : SKY_DEFAULT));
+  skySaved !== null ? (parseInt(skySaved, 10) || 0) : SKY_DEFAULT));
 function playSkyIntro() {
   const bg = document.querySelector('#overlay .mBg');
   if (!bg) return;
