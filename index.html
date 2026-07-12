@@ -46,6 +46,28 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   body.arcadeScene #overlay .mGround,
   body.arcadeScene #overlay .mHorizon,
   body.arcadeScene #overlay .mPalm { display: none !important; }
+  /* ===== MENU -> ARCADE: settle into the city smoothly =====
+     Entering arcade flips #game from z-index 1 to 12, so the canvas — which paints its OWN opaque dark
+     floor and neon grid — slams on top of the menu image's baked-in pink road. Same city, same sun, same
+     sky (it's one image, shared), but the GROUND under the skyline changes in a single frame, and that hard
+     cut is what makes the entry feel abrupt.
+     Fade the canvas up instead: the menu road shows through and dissolves into the neon grid beneath the
+     city. Opacity only — NOT transform. A transform on #game would slide the grid off the buildings it's
+     drawn to sit under (the canvas and the backdrop share a vanishing point), which is exactly the artifact
+     that killed the camera-punch version. */
+  body.cityIn #game { animation: cityIn 560ms ease-out 1 forwards; }
+  @keyframes cityIn { from { opacity: 0; } to { opacity: 1; } }
+  /* and fade the menu's own UI out rather than letting it vanish in one frame */
+  body.arcadeScene.cityIn #overlay > h1,
+  body.arcadeScene.cityIn #overlay > p,
+  body.arcadeScene.cityIn #overlay > .btn,
+  body.arcadeScene.cityIn #overlay > .hint,
+  body.arcadeScene.cityIn #overlay > .arcBest,
+  body.arcadeScene.cityIn #topNav {
+    display: revert !important; pointer-events: none;
+    animation: menuOut 300ms ease-in 1 forwards;
+  }
+  @keyframes menuOut { from { opacity: 1; } to { opacity: 0; } }
   /* ===== MENU -> ARCADE transition: DIGITAL BLOCK DISSOLVE =====
      The screen shatters into small neon tiles that fill it up, the world is swapped underneath while it's
      hidden, then the tiles clear away to reveal the arcade. Drawn on its own canvas (a few hundred
@@ -6596,7 +6618,13 @@ function cockpitGlitchIn() {
 document.getElementById('startBtn').addEventListener('click', () => beginRun('cruise'));
 // ARCADE from the MENU: start the world instantly (it's the same scene), then glitch the interior in.
 // A crash restart calls beginRun() with no mode and skips this — you're already in the car there.
-document.getElementById('arcadeBtn').addEventListener('click', () => { beginRun('arcade'); cockpitGlitchIn(); });
+const CITY_IN_MS = 600;                                      // must outlast the cityIn / menuOut CSS animations
+document.getElementById('arcadeBtn').addEventListener('click', () => {
+  beginRun('arcade');
+  document.body.classList.add('cityIn');                    // menu road dissolves into the neon grid under the city
+  setTimeout(() => document.body.classList.remove('cityIn'), CITY_IN_MS);
+  cockpitGlitchIn();                                        // ...and the cockpit glitches in out of blocks on top
+});
 document.getElementById('restartBtn').addEventListener('click', beginRun);   // no arg -> keeps current mode
 function updateArcadeBest(){ var el=document.getElementById('arcadeBest'); if(el) el.innerHTML = 'BEST&nbsp;&nbsp;' + arcadeBest.toLocaleString(); }
 updateArcadeBest();
