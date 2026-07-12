@@ -79,9 +79,11 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   @keyframes sky10 { from { clip-path: inset(100% 0 0 0); }                 to { clip-path: inset(0 0 0 0); } }      /* wipe down */
   @keyframes sky11 { from { clip-path: inset(0 0 100% 0); }                 to { clip-path: inset(0 0 0 0); } }      /* wipe up */
   @keyframes sky12 { from { clip-path: inset(0 100% 0 0); }                 to { clip-path: inset(0 0 0 0); } }      /* wipe across */
-  /* IRIS: an expanding ROUNDED INSET, not clip-path:circle(). circle() re-rasterised the whole backdrop
-     image every frame and stalled the page for ~719ms; inset() (which every wipe above uses) is cheap. */
-  @keyframes sky13 { from { clip-path: inset(46% 46% 46% 46% round 50%); } to { clip-path: inset(0 0 0 0 round 0); } }
+  /* IRIS: an expanding INSET opening on BOTH axes, not clip-path:circle() and not `round`. circle() had to
+     re-rasterise the whole layer every frame and stalled ~719ms; once the game canvas joined the animation
+     the ROUNDED inset still cost ~113ms (the canvas already repaints every frame, so rounding it is charged
+     again each time). A plain inset — what every wipe uses — is cheap and holds 60fps. */
+  @keyframes sky13 { from { clip-path: inset(46% 46% 46% 46%); } to { clip-path: inset(0 0 0 0); } }
   @keyframes sky14 { 0% { transform: translate(-14px,6px); opacity: .2; }   /* glitch shake */
                      20% { transform: translate(12px,-8px); opacity: .9; }
                      40% { transform: translate(-8px,4px); opacity: .5; }
@@ -6822,13 +6824,20 @@ function playSkyIntro() {
   const bg = document.querySelector('#overlay .mBg');
   if (!bg) return;
   const s = SKY_STYLES[skyStyle];
+  // The entrance plays on the BACKDROP IMAGE **and the GAME CANVAS** with IDENTICAL keyframes, so the
+  // skyline, the palms and the road all move as one world. They MUST be identical: the canvas and the
+  // backdrop share a vanishing point, so animating one alone slides the neon grid off the buildings it is
+  // drawn to sit under. (Same transform-origin too — both boxes are the full viewport.)
+  const els = [bg, document.getElementById('game')].filter(Boolean);
   // Restarting a CSS animation needs the old one CLEARED and a reflow forced — just re-assigning the same
   // animation name is a no-op, so a second press would do nothing at all.
-  bg.style.animation = 'none';
+  els.forEach(el => { el.style.animation = 'none'; });
   void bg.offsetWidth;
-  bg.style.animation = `${s.kf} ${s.ms}ms ${s.e} 1 both`;
+  els.forEach(el => { el.style.animation = `${s.kf} ${s.ms}ms ${s.e} 1 both`; el.style.willChange = 'transform, opacity, filter'; });
   clearTimeout(playSkyIntro._t);
-  playSkyIntro._t = setTimeout(() => { bg.style.animation = ''; }, s.ms + 60);   // hand the element back to CSS
+  playSkyIntro._t = setTimeout(() => {
+    els.forEach(el => { el.style.animation = ''; el.style.willChange = ''; });   // hand the elements back to CSS
+  }, s.ms + 60);
   const fl = document.getElementById('skyFlash');               // white blow-out layer (NEON FLASH only)
   if (fl) {
     fl.style.animation = 'none'; void fl.offsetWidth;
