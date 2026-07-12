@@ -6697,22 +6697,40 @@ function blkToast(msg) {
   clearTimeout(blkToast._t);
   blkToast._t = setTimeout(() => { el.style.opacity = '0'; }, 1500);
 }
+// I = next block style (Shift+I = previous).  U = replay the transition with the style you're on.
+// Both replay the FULL intro (city dissolve + cockpit blocks), so what you see is what you get on entry.
 window.addEventListener('keydown', e => {
-  if (e.key !== 'i' && e.key !== 'I') return;
+  const k = e.key.toLowerCase();
+  if (k !== 'i' && k !== 'u') return;
   if (gameMode !== 'arcade' || !document.body.classList.contains('arcadeScene')) return;
   if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;   // don't hijack typing in the dev panel
   const n = BLK_STYLES.length;
-  blkStyle = (blkStyle + (e.shiftKey ? n - 1 : 1)) % n;
-  localStorage.setItem('blkStyle', String(blkStyle));
-  blkToast(`BLOCKS  ${blkStyle + 1}/${n}  ·  ${BLK_STYLES[blkStyle].name}`);
-  cockpitGlitchIn();                                          // replay it immediately with the new style
+  if (k === 'i') {
+    blkStyle = (blkStyle + (e.shiftKey ? n - 1 : 1)) % n;
+    localStorage.setItem('blkStyle', String(blkStyle));
+    blkToast(`BLOCKS  ${blkStyle + 1}/${n}  ·  ${BLK_STYLES[blkStyle].name}`);
+  } else {
+    blkToast(`REPLAY  ·  ${blkStyle + 1}/${n}  ${BLK_STYLES[blkStyle].name}`);
+  }
+  playArcadeIntro();
 });
 const CITY_IN_MS = 600;                                      // must outlast the cityIn / menuOut CSS animations
+// The full menu -> arcade transition: the city's ground dissolves into the neon grid, and the cockpit
+// glitches in out of blocks on top of it. Factored out so pressing U can replay the whole thing.
+function playArcadeIntro() {
+  const b = document.body;
+  // Re-adding a class that's already there does NOT restart a CSS animation. Drop it, force a reflow to
+  // flush the removal, then re-add — otherwise a second U press would replay the blocks but not the city.
+  b.classList.remove('cityIn');
+  void b.offsetWidth;
+  b.classList.add('cityIn');
+  clearTimeout(playArcadeIntro._t);
+  playArcadeIntro._t = setTimeout(() => b.classList.remove('cityIn'), CITY_IN_MS);
+  cockpitGlitchIn();
+}
 document.getElementById('arcadeBtn').addEventListener('click', () => {
   beginRun('arcade');
-  document.body.classList.add('cityIn');                    // menu road dissolves into the neon grid under the city
-  setTimeout(() => document.body.classList.remove('cityIn'), CITY_IN_MS);
-  cockpitGlitchIn();                                        // ...and the cockpit glitches in out of blocks on top
+  playArcadeIntro();
 });
 document.getElementById('restartBtn').addEventListener('click', beginRun);   // no arg -> keeps current mode
 function updateArcadeBest(){ var el=document.getElementById('arcadeBest'); if(el) el.innerHTML = 'BEST&nbsp;&nbsp;' + arcadeBest.toLocaleString(); }
