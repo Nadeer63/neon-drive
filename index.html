@@ -3895,7 +3895,12 @@ const facadeImg = new Image(); facadeImg.src = 'assets/facade.png';   // tileabl
 const scGator = new Image(); scGator.src = 'assets/sc_gator.png';     // roadside Florida gator
 const scCypress = new Image(); scCypress.src = 'assets/sc_cypress.png';
 const scPalm = new Image(); scPalm.src = 'assets/sc_palm.png';        // neon palm matched to the pic (img2img)
-const arcPalm = new Image(); arcPalm.src = 'assets/palm_grounded.png';   // main-page soft-pink palm, used in ARCADE
+// ARCADE palm. NOT palm_grounded.png: that asset has a semi-opaque rectangular BLOCK baked in under the
+// crown and a wide filled slab behind the trunk, so the neon ladder sits on a solid bar instead of being
+// the outline. hue-rotate() drags that fill to pink with everything else, and a palm passing close to the
+// camera magnifies it into a chunky pink box. palm_solid.png is the same palm with neither — glowing
+// outline, thin tapered ladder trunk, clean alpha edges.
+const arcPalm = new Image(); arcPalm.src = 'assets/palm_solid.png';   // soft-pink neon palm, used in ARCADE
 const scFence = new Image(); scFence.src = 'assets/sc_fence.png';     // generated SOLID steel guardrail (matte, no neon), mapped onto the causeway edges per-segment
 const bldImgs = []; for (let i = 0; i < 60; i++){ const im = new Image(); im.src = 'assets/bld_' + i + '.png'; bldImgs.push(im); }   // 60 distinct Miami Art-Deco hotels (3/4 view, baked 3D)
 const clubImgs = []; for (let i = 0; i < 16; i++){ const im = new Image(); im.src = 'assets/club_' + i + '.png'; clubImgs.push(im); }   // neon nightclub/hotel buildings for the intersection corners
