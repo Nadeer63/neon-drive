@@ -5031,6 +5031,10 @@ function drawPlayerCar(){
       // only from here down, so the road seen through the cut-out is left alone. See render().
       dashTopY = topY + dashOpaqueFrac(photo, s0, sBandH) * dashH;
       dashLeft = (W - dashW) / 2;
+      // The cockpit is being glitched in (menu -> arcade): its GEOMETRY is computed as normal — dashTopY has
+      // to stay honest, the grid's horizon fade is measured against it — but the ART is withheld until the
+      // blocks clear. Returning here suppresses the dash, the edge fill, the radio screen and the wheel.
+      if (blkHideDash) return;
       if (dashLeft > 1) {                                         // wide screen: extend the dashboard to the screen edges by stretching a THIN outer column
         const col = Math.max(2, photo.naturalWidth * 0.025);      // (the very edge is dark frame; the cut-out top stays transparent so the road still shows through)
         ctx.drawImage(photo, 0, s0, col, sBandH, 0, topY, dashLeft + 1, dashH);                                            // left
@@ -6513,53 +6517,62 @@ function beginRun(mode) {
   if (!musicStarted) { startMusic(); musicStarted = true; }   // start once; keep whatever you switched to across deaths
 }
 
-// ===== MENU -> ARCADE: DIGITAL BLOCK DISSOLVE =====
-// The screen shatters into small neon tiles that fill it up; the world is swapped UNDERNEATH while it's
-// fully hidden; then the tiles clear away to reveal the arcade. Because the swap happens behind a solid
-// wall of blocks, the cut itself is never seen — no fade, no flash needed.
+// ===== MENU -> ARCADE: the CAR INTERIOR glitches in out of blocks =====
+// The WORLD needs no transition: the menu backdrop (skyline, sun, palms) IS the arcade backdrop, same art,
+// already on screen — so the scene just keeps going, and arcade starts immediately. Only the CAR arrives.
+// So the tiles are confined to the cockpit rect: they storm in over the interior, and when they've buried
+// it the dash art is switched on BEHIND them (blkHideDash) and the tiles clear away — the interior
+// materialises out of the blocks instead of being there all along.
 // Canvas, not CSS: a tile dissolve needs a random per-tile ORDER and per-tile colour re-rolls each frame,
-// which keyframes can't express. Cost is a few hundred fillRects a frame for ~1s, and zero when idle.
+// which keyframes can't express. Idle cost is zero (display:none until used).
 const blkCv = document.getElementById('introBlocks');
 const blkCtx = blkCv.getContext('2d');
-const BLK_PX = 22;                                           // tile size (px) — small, so it reads as pixels
-const BLK_IN = 380, BLK_HOLD = 90, BLK_OUT = 480;            // fill up / stay solid / clear away  (~950ms)
+let blkHideDash = false;                                     // true = cockpit geometry runs, cockpit ART is withheld
+const BLK_PX = 18;                                           // tile size (px) — small, so it reads as pixels
+const BLK_IN = 300, BLK_HOLD = 80, BLK_OUT = 430;            // storm in / stay solid / clear away  (~810ms)
 const BLK_PAL = ['#ff2bd6', '#00f0ff', '#b026ff', '#ff2bd6', '#00f0ff', '#150626', '#150626', '#ffffff'];
-function blockDissolve(swap) {
-  const w = window.innerWidth, h = window.innerHeight;
-  blkCv.width = w; blkCv.height = h; blkCv.style.display = 'block';
-  const cols = Math.ceil(w / BLK_PX), rows = Math.ceil(h / BLK_PX), n = cols * rows;
-  // two INDEPENDENT shuffles: tiles fill in one random order and clear in a different one, so the dissolve
-  // doesn't just play backwards on the way out.
-  const shuffle = () => { const a = new Int32Array(n); for (let i = 0; i < n; i++) a[i] = i;
-    for (let i = n - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0, t = a[i]; a[i] = a[j]; a[j] = t; } return a; };
-  const inOrd = shuffle(), outOrd = shuffle();
-  const hue = new Uint8Array(n);
-  for (let i = 0; i < n; i++) hue[i] = (Math.random() * BLK_PAL.length) | 0;
-  let swapped = false;
-  const t0 = performance.now();
-  (function frame() {
-    const t = performance.now() - t0;
-    let ord = inOrd, live;                                   // `live` = how many tiles are currently painted
-    if (t < BLK_IN)                    live = Math.round(n * (t / BLK_IN));
-    else if (t < BLK_IN + BLK_HOLD)    live = n;
-    else { ord = outOrd; live = Math.max(0, Math.round(n * (1 - (t - BLK_IN - BLK_HOLD) / BLK_OUT))); }
-    // Swap the world at the moment the screen is fully covered — the cut happens behind the blocks.
-    if (!swapped && t >= BLK_IN) { swapped = true; swap(); }
-    for (let k = 0; k < 50; k++) hue[(Math.random() * n) | 0] = (Math.random() * BLK_PAL.length) | 0;   // glitch shimmer
-    blkCtx.clearRect(0, 0, w, h);
-    for (let i = 0; i < live; i++) {
-      const c = ord[i];
-      blkCtx.fillStyle = BLK_PAL[hue[c]];
-      blkCtx.fillRect((c % cols) * BLK_PX, ((c / cols) | 0) * BLK_PX, BLK_PX - 1, BLK_PX - 1);   // -1 = thin dark seam between tiles
-    }
-    if (t >= BLK_IN + BLK_HOLD + BLK_OUT) { blkCtx.clearRect(0, 0, w, h); blkCv.style.display = 'none'; return; }
-    requestAnimationFrame(frame);
-  })();
+function cockpitGlitchIn() {
+  blkHideDash = true;
+  // Wait one frame: with the art withheld, that frame still runs the cockpit's geometry, so dashTopY comes
+  // back honest and we can size the tile field to the REAL interior instead of guessing at it.
+  requestAnimationFrame(() => {
+    const w = window.innerWidth, h = window.innerHeight;
+    const y0 = Math.max(0, Math.min(h - 8, dashTopY > 0 ? dashTopY : h * 0.55));   // top of the visible interior
+    blkCv.width = w; blkCv.height = h; blkCv.style.display = 'block';
+    const cols = Math.ceil(w / BLK_PX), rows = Math.ceil((h - y0) / BLK_PX), n = cols * rows;
+    // two INDEPENDENT shuffles: tiles arrive in one random order and leave in another, so the dissolve
+    // doesn't simply play backwards on the way out.
+    const shuffle = () => { const a = new Int32Array(n); for (let i = 0; i < n; i++) a[i] = i;
+      for (let i = n - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0, t = a[i]; a[i] = a[j]; a[j] = t; } return a; };
+    const inOrd = shuffle(), outOrd = shuffle();
+    const hue = new Uint8Array(n);
+    for (let i = 0; i < n; i++) hue[i] = (Math.random() * BLK_PAL.length) | 0;
+    const t0 = performance.now();
+    (function frame() {
+      const t = performance.now() - t0;
+      let ord = inOrd, live;                                 // `live` = how many tiles are painted right now
+      if (t < BLK_IN)                 live = Math.round(n * (t / BLK_IN));
+      else if (t < BLK_IN + BLK_HOLD) live = n;
+      else { ord = outOrd; live = Math.max(0, Math.round(n * (1 - (t - BLK_IN - BLK_HOLD) / BLK_OUT))); }
+      // Once the interior is fully buried, switch the dash art on BEHIND the blocks, so it is revealed by
+      // them rather than popping in.
+      if (blkHideDash && t >= BLK_IN) blkHideDash = false;
+      for (let k = 0; k < 40; k++) hue[(Math.random() * n) | 0] = (Math.random() * BLK_PAL.length) | 0;   // glitch shimmer
+      blkCtx.clearRect(0, 0, w, h);
+      for (let i = 0; i < live; i++) {
+        const c = ord[i];
+        blkCtx.fillStyle = BLK_PAL[hue[c]];
+        blkCtx.fillRect((c % cols) * BLK_PX, y0 + ((c / cols) | 0) * BLK_PX, BLK_PX - 1, BLK_PX - 1);   // -1 = thin dark seam
+      }
+      if (t >= BLK_IN + BLK_HOLD + BLK_OUT) { blkCtx.clearRect(0, 0, w, h); blkCv.style.display = 'none'; blkHideDash = false; return; }
+      requestAnimationFrame(frame);
+    })();
+  });
 }
 document.getElementById('startBtn').addEventListener('click', () => beginRun('cruise'));
-// ARCADE from the MENU dissolves in. A crash restart calls beginRun() with no mode and skips it — you're
-// already sitting in the car there, so replaying the dissolve would just be a tic.
-document.getElementById('arcadeBtn').addEventListener('click', () => blockDissolve(() => beginRun('arcade')));
+// ARCADE from the MENU: start the world instantly (it's the same scene), then glitch the interior in.
+// A crash restart calls beginRun() with no mode and skips this — you're already in the car there.
+document.getElementById('arcadeBtn').addEventListener('click', () => { beginRun('arcade'); cockpitGlitchIn(); });
 document.getElementById('restartBtn').addEventListener('click', beginRun);   // no arg -> keeps current mode
 function updateArcadeBest(){ var el=document.getElementById('arcadeBest'); if(el) el.innerHTML = 'BEST&nbsp;&nbsp;' + arcadeBest.toLocaleString(); }
 updateArcadeBest();
