@@ -155,8 +155,24 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
      MENU keeps the untouched art: the warp bends vertical lines, and the menu shows the image's perspective
      grid floor, which would visibly buckle. Arcade paints its own opaque floor over everything below the
      horizon, so the warp is never seen there. */
-  body.arcadeScene #overlay .mBg { background-image: url("assets/menu_bg_portrait_arcade.png"); }
-  @media (orientation: landscape) { body.arcadeScene #overlay .mBg { background-image: url("assets/menu_bg_land_arcade.png"); } }
+  /* PORTRAIT also has to be ZOOMED AND RE-ALIGNED, not just cover-fitted.
+     The portrait art carries a lot of empty sky, and its horizon — where the grid begins, at the foot of the
+     buildings — sits at 59.6% of the image height. Cover-fitted on a 430x932 phone that lands well below the
+     GAME's horizon (H/2 = 466px), so the canvas's opaque neon floor painted straight over the city: hence
+     the tiny, distant, washed-out skyline in portrait.
+     Zoom 180% + position 71.6% puts the art's horizon exactly on the game's, and the city renders 1.8x
+     bigger. The number matters: get it wrong and the art's OWN grid floor shows above the game's floor as a
+     double horizon. (Landscape needs none of this — its horizon already lines up.) */
+  body.arcadeScene #overlay .mBg {
+    background-image: url("assets/menu_bg_portrait_arcade.png");
+    background-size: auto 180%; background-position: center 71.6%;
+  }
+  @media (orientation: landscape) {
+    body.arcadeScene #overlay .mBg {
+      background-image: url("assets/menu_bg_land_arcade.png");
+      background-size: cover; background-position: center center;
+    }
+  }
   /* The pulled-back bgs have their own small distant baked sun, so the old cut-out DISC (.mSunFront) stays
      hidden — it would ghost a second sun over the painted one.
      The audio-spectrum RING (.mSunViz) is back on: it draws bars around the sun, not a disc over it, so it
@@ -1011,13 +1027,18 @@ function resize() {
   const portrait = window.matchMedia ? window.matchMedia('(orientation: portrait)').matches : (H >= W);   // reliable across mobile rotations
   phoneMode = touch && portrait;
   touchLandscape = touch && !portrait;
-  CAM_MUL = phoneMode ? 0.5 : 1;   // phone portrait: low, road-level camera (the look the user wants) — never raised
+  // ONE camera on every device now. Portrait used to sit low (0.5) and look through a narrow FOV 35, so the
+  // neon floor and its cyan side-ground spread completely differently from landscape — which is what made
+  // the "blue sides" look wrong the moment you rotated the phone. Same height + same FOV = same scene,
+  // whichever way you hold it.
+  CAM_MUL = 1;
   simSpeedMul = 1;                 // IDENTICAL physics on every device: mobile and desktop cars travel the exact
                                    // same real distance per second (fair for multiplayer, no world slow-down).
-  // FIELD OF VIEW is LOCKED per orientation and can't be changed: phone portrait = FOV 35 (a tighter view),
-  // landscape/desktop = FOV 100 (max/widest). Value maps like the old 0-100 slider: CAM_DEPTH = 1.2 - value/100*0.7.
+  // FIELD OF VIEW is now the SAME everywhere: FOV 100 (max/widest). Portrait was FOV 35, a much tighter
+  // view, so the road and the cyan ground either side of it spread far less than in landscape — rotating
+  // the phone visibly changed the scene. Value maps like the old 0-100 slider: CAM_DEPTH = 1.2 - value/100*0.7.
   FOV_MUL = 1;
-  CAM_DEPTH = phoneMode ? (1.2 - 0.35 * 0.7) : (1.2 - 1.0 * 0.7);   // 0.955 (portrait/35)  ·  0.5 (landscape+desktop/100)
+  CAM_DEPTH = 1.2 - 1.0 * 0.7;     // 0.5 — FOV 100, every device and orientation
   cv.width = Math.round(W * renderScale); cv.height = Math.round(H * renderScale);
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
   ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
@@ -5051,6 +5072,12 @@ function drawPlayerCar(){
     if (pimg && pimg.complete && pimg.naturalWidth) {
       const ph = IN.phone, band = ph.srcBot - ph.srcTop;
       const dashH = W * (band * pimg.naturalHeight / pimg.naturalWidth), tY = H - dashH;  // natural aspect (round gauge, no stretch)
+      // The phone dashboard path never set dashTopY, so it stayed 0 — and in arcade the colour grade is
+      // clipped to `rect(0, dashTopY, W, H - dashTopY)` on the assumption that it only tints the COCKPIT.
+      // At 0 that clip covered the whole screen, so the purple filter was washed straight over the sky, the
+      // sun and the city: portrait looked hazy and desaturated while landscape (which does set it) was
+      // vivid. Report where the interior actually starts.
+      dashTopY = tY;
       ctx.drawImage(pimg, 0, ph.srcTop*pimg.naturalHeight, pimg.naturalWidth, band*pimg.naturalHeight, 0, tY, W, dashH);
       // wheel first, so the flanking gauge + radio always sit on top at the edges
       const wimg = IN.wheelImg && interiorImgs[IN.wheelImg], keyed = wimg && keyedImage(wimg);
