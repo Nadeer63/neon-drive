@@ -7181,12 +7181,19 @@ requestAnimationFrame(frame);
   // looking" menu tree. One asset now, identical in menu and arcade, and no runtime recolour anywhere.
   var PALM='assets/palm_neon_pink.png';
   function land(){ return matchMedia('(orientation: landscape)').matches; }
-  function KEY(){ return land()?'devTrees_land_v1':'devTrees_port_v1'; }
+  // Phones get their OWN saved layout (…_touch_v1), separate from desktop. Two reasons: the default count
+  // differs (below), and a phone that had already saved the crowded 20-tree landscape row under the old key
+  // would otherwise keep it forever and never see the fix.
+  function KEY(){ return (land()?'devTrees_land':'devTrees_port') + (IS_TOUCH?'_touch_v1':'_v1'); }
   function defaults(L){
     var HZ=L?0.58:0.63,
         pts=L?[[0.02,.985],[.078,.904],[.15,.839],[.205,.787],[.249,.746],[.285,.713],[.312,.686],[.327,.665],[.338,.648],[.347,.634]]
               :[[.05,.985],[.11,.915],[.17,.858],[.23,.808],[.28,.766],[.32,.73],[.355,.7],[.385,.676],[.41,.656],[.43,.64]],
         kh=(L?0.70:0.42)/(0.985-HZ), out=[];
+    // A phone in LANDSCAPE is short and wide: the same 10 pairs desktop uses pack into a solid hedge of
+    // palms. Keep every other one (5 pairs, 10 trees) so the avenue still frames the road but you can see
+    // the city through it. Portrait is tall and only shows a couple of palms anyway, so it keeps the lot.
+    if (IS_TOUCH && L) pts = pts.filter(function(_, i){ return i % 2 === 0; });
     pts.forEach(function(p){ var s=+(kh*(p[1]-HZ)*100).toFixed(2), y=+((1-p[1])*100).toFixed(2);
       out.push({x:+(p[0]*100).toFixed(2),y:y,s:s,flip:false});
       out.push({x:+((1-p[0])*100).toFixed(2),y:y,s:s,flip:true}); });
