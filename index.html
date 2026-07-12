@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783815485";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783868792";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -870,8 +870,26 @@ function measureSafeTop(){       // resolve env(safe-area-inset-top) to a pixel 
 let touchLandscape = false;       // touch device held sideways
 // render resolution scale — capped, lowered if FPS dips, and RECOVERED when it's smooth again
 const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-let renderScale = IS_TOUCH ? 0.8 : Math.min(window.devicePixelRatio || 1, 1.25);
+// Desktop cap was 1.25, so on a Retina (dpr 2) display the game canvas rendered at 1.25x and the
+// browser then UPSCALED it 1.6x to native — which resampled every diagonal and made the neon road
+// edges look soft/stair-stepped, while the HUD (drawn on its own dpr-2 canvas) stayed crisp. Render
+// at the true device ratio so lines land on real pixels. Safe: the adaptive loop below still drops
+// renderScale toward RS_FLOOR if the frame rate can't hold it, and recovers when it can.
+let renderScale = IS_TOUCH ? 0.8 : Math.min(window.devicePixelRatio || 1, 1.5);
 const RS_CAP = renderScale;   // never render sharper than the starting cap
+// Measured display refresh. The adaptive-resolution loop compares against THIS, not a hardcoded 60,
+// so a 30Hz / throttled / battery-saver display isn't mistaken for a struggling GPU.
+let DISPLAY_HZ = 60;
+(function measureHz(){
+  let n = 0; const t0 = performance.now();
+  const tick = () => {
+    n++;
+    const dt = performance.now() - t0;
+    if (dt < 700) requestAnimationFrame(tick);
+    else DISPLAY_HZ = Math.max(24, Math.min(240, n / dt * 1000));
+  };
+  requestAnimationFrame(tick);
+})();
 const RS_FLOOR = IS_TOUCH ? 0.46 : 0.62;   // weak phones can drop further to hold framerate
 function resize() {
   W = window.innerWidth; H = window.innerHeight;
@@ -1371,6 +1389,7 @@ window.__city = function(i){
 };
 window.__nocrash = function(v){ dbgNoCrash = v !== false; };
 
+let dashTopY = 0;                  // screen Y of the top of the cockpit art (set in drawPlayerCar, used to grade the arcade interior)
 let camPitch = 0;                  // downhill view tilt (px): lifts the road/cars up so they clear the dashboard
 function project(p, camX, camY, camZ) {
   const scale = (CAM_DEPTH * FOV_MUL) / (p.z - camZ);
@@ -1461,8 +1480,13 @@ function frame(t) {
       // Drop resolution quickly when struggling (so drops don't linger), recover slowly (so it doesn't
       // oscillate/flicker), with a cooldown between changes.
       if (rsCool > 0) rsCool--;
-      rsLow  = (fps < 50) ? rsLow  + 1 : 0;                  // struggling streak
-      rsHigh = (fps > 57) ? rsHigh + 1 : 0;                  // smooth streak
+      // Thresholds are relative to the DISPLAY's refresh rate, not a hardcoded 60. On a 30Hz panel
+      // (or a throttled/battery-saver tab) fps can never exceed 57, so the old `fps > 57` smooth-streak
+      // could NEVER fire while `fps < 50` fired forever — renderScale spiralled down to RS_FLOOR and
+      // never recovered, permanently blurring the game on hardware that was actually keeping up fine.
+      const LOW = DISPLAY_HZ * 0.83, HIGH = DISPLAY_HZ * 0.95;
+      rsLow  = (fps < LOW)  ? rsLow  + 1 : 0;                // struggling streak
+      rsHigh = (fps > HIGH) ? rsHigh + 1 : 0;                // smooth streak
       if (rsCool === 0 && rsLow >= 2 && renderScale > RS_FLOOR) {      // ~1s of struggle -> drop a good step
         renderScale = Math.max(RS_FLOOR, renderScale - 0.14);
         resize(); render(); rsCool = 6; rsLow = 0;           // repaint immediately (no black frame) + cooldown
@@ -2160,7 +2184,7 @@ function render() {
     const isCross = pts[n].seg.cross && !causeG && gameMode !== 'arcade';  // no cross-streets over causeway water / arcade grid floor
     // smooth vertical water gradient (deeper toward the horizon) — no per-segment ripple band
     {                                            // arcade fills an OPAQUE dark floor too, so the flat menu-image road below the horizon can't show through and "double up"
-    ctx.fillStyle = arcScene ? '#180a3d' : inTun ? '#0a0812' : causeG ? (dark ? '#0c3a73' : '#114a86') : harborG ? (dark ? '#0a2844' : '#0e3050') : (isCross ? '#0e0e17' : '#190643');
+    ctx.fillStyle = arcScene ? '#16082c' : inTun ? '#0a0812' : causeG ? (dark ? '#0c3a73' : '#114a86') : harborG ? (dark ? '#0a2844' : '#0e3050') : (isCross ? '#0e0e17' : '#190643');
     ctx.fillRect(0, b.sy, W, a.sy - b.sy + 1);   // +1 overlaps ground segments (no sidewalk seam); the road poly above covers any bleed onto the road
     }
     if (harborG && !dark) { ctx.fillStyle = 'rgba(140,195,235,0.07)'; ctx.fillRect(0, b.sy, W, Math.max(1, (a.sy-b.sy)*0.4)); } // ripple
@@ -2237,6 +2261,58 @@ function render() {
   // so traffic cars sit exactly ON it (the fixed CSS grid didn't match, which made the cars float). Cyan horizontals
   // + magenta perspective lines, scrolling toward the camera. Cars + cockpit draw on top of it.
   if (arcScene && gNear && gFar && gNear.sy > gFar.sy + 20) {
+    // neon palette sampled straight out of assets/menu_bg_land_back2.png so the arcade floor
+    // reads identically to the menu's grid (ground base #16082c is set on the fill above).
+    // CYAN comes from the menu's background art (assets/menu_bg_land_back2.png) -> #41edf1.
+    // PINK is NOT in that art — the menu's road grid is a CSS layer (#overlay .mGrid):
+    //   linear-gradient(rgba(255,70,205,.95) 2px ...)   horizontals
+    //   linear-gradient(90deg, rgba(255,70,205,.8) 2px ...) verticals
+    //   drop-shadow(rgba(255,70,205,.85) 0 0 3px)
+    // I originally sampled the pink out of the IMAGE and got #fd7ce3 (253,124,227) — but that was the
+    // pink palms/buildings, not the grid. Real grid pink is rgb(255,70,205): green 70 vs 124, i.e. the
+    // menu's magenta is far more saturated than the pale pink I'd been drawing.
+    const GRID_CYAN = '#41edf1', GRID_PINK = '#ff46cd';
+    const PINK_RGB = '255,70,205', CYAN_RGB = '65,237,241';
+    const PINK_ROW_A = 0.95, PINK_COL_A = 0.8;               // exactly the two CSS alphas above
+    // ---- THE SOFTENING: the menu paints a dark wash OVER its cyan art ----
+    // Menu paint order (DOM order, all z-index 0): .mBg (the cyan grid art) -> .mGround -> .mGrid (pink).
+    // So the CYAN is seen THROUGH .mGround, a navy wash at ~0.3-0.85 alpha, while the PINK sits on top
+    // of it and is not washed. Drawing raw #41edf1 (as I was) gives a vivid cyan the menu never shows:
+    // sampled from the real rendered menu, its cyan reads (35,90,126) typical / (169,237,255) at the
+    // line core — a soft muted blue. Reproduce .mGround's own gradient and view the cyan through it.
+    const mgTop = H * 0.47, mgH = H - mgTop;                 // .mGround spans top:47% -> bottom
+    const washAt = y => {                                    // .mGround linear-gradient, evaluated at y
+      const u = Math.max(0, Math.min(1, (y - mgTop) / mgH));
+      // rgba(28,15,60,.3) 0%  ->  rgba(9,5,24,.6) 55%  ->  rgba(5,3,16,.85) 100%
+      if (u <= 0.55) { const f = u / 0.55;
+        return { r: 28 + (9 - 28) * f, g: 15 + (5 - 15) * f, b: 60 + (24 - 60) * f, a: 0.3 + 0.3 * f }; }
+      const f = (u - 0.55) / 0.45;
+      return { r: 9 + (5 - 9) * f, g: 5 + (3 - 5) * f, b: 24 + (16 - 24) * f, a: 0.6 + 0.25 * f };
+    };
+    const softCyan = y => {                                  // #41edf1 as the MENU actually renders it
+      const w = washAt(y);
+      return [Math.round(w.a * w.r + (1 - w.a) * 65),
+              Math.round(w.a * w.g + (1 - w.a) * 237),
+              Math.round(w.a * w.b + (1 - w.a) * 241)].join(',');
+    };
+    // Depth over which the grid dissolves into the horizon.
+    // This has to satisfy TWO things at once, and a fixed fraction of `span` can't:
+    //   - long enough that lines FADE IN smoothly (a short band makes them snap on at the horizon)
+    //   - short enough that they reach FULL colour on screen (a long band leaves everything washed out)
+    // `span` (292px) is the whole projection, but the dashboard hides most of it — the floor you can
+    // actually SEE is only ~46px with DRIVE's cockpit. Tying the fade to `span` meant 0.16 swallowed the
+    // entire visible floor (washed colours) while 0.04 crammed the fade into 12px (hard pop-in).
+    // So: dissolve over the top HALF of the VISIBLE floor, whatever that happens to be. The far half
+    // fades (smooth), the near half is full colour (matches the menu). Self-correcting if the dash
+    // height ever changes again.  (HORIZON_FADE itself is computed below, once vy/by/span exist.)
+    // smoothstep, not linear — a linear ramp still reads as a visible "edge" where it tops out
+    const ss = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+    // On-screen cell aspect (height/width) — dy/dx reduces to exactly this value.
+    // Do NOT set this to 1.0: a cell that is square IN PIXELS reads as STRETCHED IN DEPTH on a floor
+    // receding to a vanishing point. The menu's floor was measured at ~105px wide x ~41px tall per
+    // cell (~0.40), which is what makes it read as square ground tiles. 0.85 (the old value) was too
+    // close to pixel-square, which is why the cells looked "long".
+    const CELL_SQ = 0.40;
     // Grid follows the road, panning + curving with steering like the other modes. But it's anchored to the road
     // centre sampled at FIXED distances ahead (not the recycling nearest/farthest segment), so it doesn't VIBRATE
     // as segments scroll past — the reference points move smoothly.
@@ -2251,61 +2327,279 @@ function render() {
     // Far anchor uses camX=0 so the grid's VANISHING POINT stays glued to the fixed sun/buildings backdrop (no drag up there).
     // Near anchor pans with the player so the FOREGROUND still responds to steering. -> grid leans, horizon holds.
     const camXw = playerX * ROAD_W;
-    const fp = { x: wxAt(camZ + 16000), y: 0, z: camZ + 16000 }; project(fp, 0, camY, camZ);      // far anchor LOCKED to backdrop
-    const np = { x: wxAt(camZ + 320),   y: 0, z: camZ + 320 };   project(np, camXw, camY, camZ);   // near anchor pans with steering
-    const swNear = W * 1.35;
+    // SUB-PIXEL projection for the grid anchors. project() does Math.round() on sx/sy — fine for
+    // sprites, fatal here: every vertical column is anchored to `bx` (near) and `vx` (vanishing point),
+    // so rounding them to whole pixels made the entire fan of columns SNAP sideways in 1px steps as you
+    // steered. That's why the horizontals looked smooth (their motion comes from the continuous `phase`)
+    // while the verticals juddered. Same maths as project(), just without the rounding.
+    const projF = (p, camX) => {
+      const sc = (CAM_DEPTH * FOV_MUL) / (p.z - camZ);
+      p.sx = (W / 2) + (sc * (p.x - camX) * PW) / 2;
+      p.sy = (H / 2) - (sc * (p.y - camY) * PH) / 2 - camPitch;
+      p.sw = (sc * ROAD_W * PW) / 2;
+    };
+    const fp = { x: wxAt(camZ + 16000), y: 0, z: camZ + 16000 }; projF(fp, 0);        // far anchor LOCKED to backdrop
+    const np = { x: wxAt(camZ + 320),   y: 0, z: camZ + 320 };   projF(np, camXw);    // near anchor pans with steering
     const vx = fp.sx, vy = fp.sy, bx = np.sx, by = H;
-    const rwNear = swNear;                                    // road half-width at the near edge (stable)
+    // Road half-width at the near anchor, taken FROM THE PROJECTION (project() already computes it as
+    // np.sw = scale * ROAD_W * PW/2). It used to be a hardcoded W*1.35, which was only ~half the true
+    // width — so the pink band didn't line up with the road you actually drive on. Two visible bugs:
+    //   1. steering panned bx by up to ±2.4W while the band was only 1.35W wide -> at full lock the
+    //      road slid right off screen and you appeared to drive on the bare cyan ground.
+    //   2. traffic cars (drawn from the real projection) sat OUTSIDE the pink band near the camera.
+    // Deriving it from np.sw makes the grid road exactly the drivable road, so both go away.
+    const rwNear = np.sw;                                     // road half-width at the near edge
     const span = by - vy;
+
+    // ===================== ROLLING HILLS ON THE GROUND (menu-style) =====================
+    // The menu's cyan ground isn't flat — it's a gently undulating wireframe terrain. That's a real
+    // height field, so displace the ground grid vertically in WORLD space and project it, rather than
+    // faking a wobble in screen space (which wouldn't scroll or pan correctly).
+    // Inverting project() for a ground point (py = 0) gives, with K = CAM_DEPTH*FOV_MUL*camY*PH/2:
+    //     y - vy = K / (z - camZ)                  ->  z = camZ + K/(y - vy)
+    //     px     = camX + (x - W/2) * camY*PH / ((y - vy) * PW)
+    // and lifting that point to height h moves it on screen to:
+    //     y_h = y - (y - vy) * h / camY
+    // so the screen displacement is just proportional to depth. The ROAD stays flat — only the ground
+    // waves, exactly as in the menu art.
+    const HILL_AMP  = 260;                                    // world units, peak-to-mid
+    const HILL_K1X = 0.00095, HILL_K1Z = 0.00062;             // broad swells
+    const HILL_K2X = 0.00210, HILL_K2Z = 0.00145;             // finer ripples on top
+    const hillH = (wx, wz) => HILL_AMP * (
+      0.62 * Math.sin(wx * HILL_K1X + wz * HILL_K1Z) +
+      0.38 * Math.sin(wx * HILL_K2X - wz * HILL_K2Z + 2.1)
+    );
+    const K_DEPTH = (CAM_DEPTH * FOV_MUL * camY * PH) / 2;
+    // screen y of the ground surface at screen (x, yFlat)
+    const hillY = (x, yFlat) => {
+      const dy = yFlat - vy;
+      if (dy <= 0.5) return yFlat;                            // at/above the horizon: no displacement
+      const wz = camZ + K_DEPTH / dy;
+      const wx = camXw + (x - W / 2) * (camY * PH) / (dy * PW);
+      return yFlat - dy * hillH(wx, wz) / camY;
+    };
+    // Road = triangle from the vanishing point out to the near edges.
+    // NOTE: must NOT call beginPath() — the ground pass builds an even-odd clip of "screen MINUS road"
+    // by adding rect(0,0,W,H) and then this wedge to the SAME path.
+    const roadWedge = () => {
+      ctx.moveTo(vx, vy);
+      ctx.lineTo(bx - rwNear, by); ctx.lineTo(bx + rwNear, by); ctx.closePath();
+    };
+    // Fade band, sized to the floor you can actually SEE (horizon -> top of the dashboard), not to
+    // `span` — most of `span` is hidden behind the cockpit. See the note by GRID_CYAN above.
+    const visFloor = Math.max(46, (dashTopY > vy ? dashTopY : by) - vy);
+    const HORIZON_FADE = Math.min(0.5, (visFloor * 0.5) / span);
+    // gradient that follows the smoothstep curve (canvas gradients are linear between stops, so the
+    // curve is sampled at a few points)
+    const fadeGrad = (r, g, b, peak) => {
+      const gr = ctx.createLinearGradient(0, vy, 0, by);
+      for (let i = 0; i <= 6; i++) {
+        const u = i / 6;
+        gr.addColorStop(HORIZON_FADE * u, `rgba(${r},${g},${b},${(ss(u) * peak).toFixed(3)})`);
+      }
+      gr.addColorStop(1, `rgba(${r},${g},${b},${peak})`);
+      return gr;
+    };
     ctx.save(); ctx.lineCap = 'round';                       // round caps -> smoother line ends
     const glow = IS_TOUCH ? 0 : 5;                           // soft neon glow (desktop) for a smooth look; off on touch for perf
-    const gap = W * 0.085;                                    // COLUMN spacing at the bottom edge
+    // COLUMN spacing, defined at the BOTTOM of the projection (y = by). by = H sits well BELOW the
+    // dashboard, so the floor you can actually SEE is only the band from the horizon (vy≈324) down to
+    // the top of the dash. Column count varies with depth, so it must be calibrated in the MIDDLE of
+    // that visible band, not at its edge.
+    // With DRIVE's full-size cockpit the visible floor is only ~50px, and that forces a choice:
+    // cell aspect is span*rstep/gap, and rstep is capped below 1 (rows collapse onto the horizon
+    // otherwise). At gap = 1.15*W (which gave 10 columns) rstep pinned at its 0.85 cap and the cells
+    // came out 0.198 — 5:1 stretched — because a menu-shaped cell simply doesn't FIT in a 50px band.
+    // Cell SHAPE wins over column COUNT: keep gap under 0.568*W so rstep stays off the cap and the
+    // aspect lands on CELL_SQ (0.40) exactly, matching the menu. Costs ~20 columns instead of ~10.
+    const gap = W * 0.55;
     // HORIZONTAL rows with GEOMETRIC perspective spacing so cells are SQUARE:
     // at depth t the column spacing is gap*t and the row spacing is span*t*rstep, so rstep = gap/span makes them equal.
     // Scrolls toward the camera with `position`.
-    const rstep = Math.min(0.5, (gap / span) * 0.85);        // 0.85 tuned so cells are BOXY (1:1); pure gap/span read slightly tall
+    // Cap raised 0.5 -> 0.85: with the bigger `gap` the ideal rstep is ~0.66, and the old 0.5 cap
+    // silently clamped it, which flattened the cells wider than CELL_SQ asked for. (Must stay < 1 or
+    // the rows collapse onto the horizon.)
+    const rstep = Math.min(0.85, (gap / span) * CELL_SQ);
+    window.__gridDbg = { vx, vy, bx, by, gap, span, rstep, rwNear, W, H, HORIZON_FADE };   // dev hook: the real grid params
     const phase = 1 - ((((position / (SEG_LEN * 9)) % 1) + 1) % 1);   // 0..1 scroll toward the viewer; SEG_LEN*9 keeps <0.5 cell/frame at speed so it moves SMOOTHLY (no wagon-wheel aliasing that reads as "frozen")
+    // ---- ROW FADE-IN, KEYED TO A ROW'S AGE RATHER THAN ITS SCREEN POSITION ----
+    // Rows are born at the far cutoff and accelerate toward the camera (their speed is proportional to
+    // their distance below the horizon), so a fade written against screen-Y is smooth in SPACE but
+    // violently uneven in TIME: a row loiters at ~5% alpha near the horizon, then rips through the whole
+    // fade band in a couple of frames and appears to pop into existence mid-floor.
+    // `i + phase` is the row's position in the geometric sequence and advances LINEARLY with distance
+    // travelled, so fading against it gives a fade that is even in TIME no matter how the row accelerates.
+    // kCut = that coordinate at the cutoff below, i.e. the moment a row is born.
+    const kCut = Math.log((2.5 / rstep) / span) / Math.log(1 - rstep);
+    const FADE_ROWS = 1.2;                                   // ease in over ~1.2 row-steps of travel
     let farY = by;                                           // farthest row drawn -> where the horizon line sits
     ctx.shadowBlur = glow;
     for (let i = 0; i < 90; i++) {
       const y = vy + span * Math.pow(1 - rstep, i + phase);
       if (y >= by) continue;
-      if ((y - vy) * rstep < 2) break;                       // reach almost to the horizon (rows visible as far back as the palms)
+      if ((y - vy) * rstep < 2.5) break;                     // stop before rows are packed tighter than their own 2px thickness
       farY = y;
       const t = (y - vy) / span;                             // 0 at horizon .. 1 at the bottom
       const xc = vx + (bx - vx) * t;                         // road centre at this depth
       const rhw = rwNear * t;                                // road half-width at this depth
-      const al = Math.min(1, 0.5 + t * 0.5);                 // stay visible into the distance, smooth ramp toward the viewer
-      ctx.shadowColor = '#8ff6ff';
-      ctx.fillStyle = `rgba(154,250,255,${al})`;
-      ctx.fillRect(0, y - 1, Math.max(0, xc - rhw), 2);                  // ground row, left of road
-      ctx.fillRect(xc + rhw, y - 1, Math.max(0, W - (xc + rhw)), 2);     // ground row, right of road
-      ctx.shadowColor = '#ff9fdd';
-      ctx.fillStyle = `rgba(235,130,205,${al})`;
-      ctx.fillRect(xc - rhw, y - 1, rhw * 2, 2);                         // road row
+      // Fade the grid OUT into the horizon, the same way the menu does it (its .mGrid has a
+      // `mask: linear-gradient(to bottom, transparent 0%, #000 14%...)`). Without this the rows bunch
+      // up near the vanishing point and fuse into a solid pink slab instead of dissolving.
+      // Alpha from the row's AGE (see kCut above), not its screen-Y: 0 the instant it is born at the
+      // cutoff, easing to full over FADE_ROWS of travel. Because `phase` advances linearly with
+      // distance, this ramp is linear in TIME — the row materialises gradually instead of snapping in.
+      // It still reaches alpha 1 well inside the visible floor, so the lines keep the exact menu colours.
+      const al = ss(((kCut - (i + phase)) / FADE_ROWS));
+      ctx.shadowColor = GRID_PINK;
+      ctx.fillStyle = `rgba(${PINK_RGB},${al * PINK_ROW_A})`;   // menu .mGrid horizontals: rgba(255,70,205,.95)
+      ctx.fillRect(xc - rhw, y - 1, rhw * 2, 2);                         // road row ONLY — the ground
+    }                                                                     // gets its own finer grid below
+
+    // ===== GROUND rows (cyan) — a SEPARATE, FINER grid than the road =====
+    // The menu doesn't use one grid for everything: measured off assets/menu_bg_land_back2.png at
+    // matched depth, its side-ground cyan pitch is ~30.5px against the road's pink ~53px, i.e. the
+    // ground is ~1.75x finer. Arcade was drawing the sides at the ROAD's spacing, which is why they
+    // looked coarse and empty next to the menu's dense wireframe.
+    // The two grids must still SCROLL TOGETHER. Row depth advances by a factor (1-rstep) per index, so
+    // an index step means a different depth for each grid — feeding both the same `phase` would slide
+    // them at different speeds. Converting the scroll into the ground's index units keeps them locked:
+    // (1-rstepG)^sG == (1-rstep)^s  =>  sG = s * ln(1-rstep)/ln(1-rstepG).
+    const gapG = gap / 1.75;                                 // menu-measured ground:road pitch ratio
+    const rstepG = Math.min(0.85, (gapG / span) * CELL_SQ);  // finer cells -> finer rows, same aspect
+    const sRoad = position / (SEG_LEN * 9);
+    const sG = sRoad * (Math.log(1 - rstep) / Math.log(1 - rstepG));
+    const phaseG = 1 - ((((sG) % 1) + 1) % 1);
+    const kCutG = Math.log((2.5 / rstepG) / span) / Math.log(1 - rstepG);
+    // Ground rows are now STROKED POLYLINES, not fillRects — they have to bend over the hills.
+    // Drawn full-width and clipped to "screen minus road", so the road stays flat and unaffected.
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, W, H); roadWedge();
+    ctx.clip('evenodd');
+    ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    const XSTEP = Math.max(6, W / 90);                       // sampling step across the row
+    for (let i = 0; i < 160; i++) {
+      const y = vy + span * Math.pow(1 - rstepG, i + phaseG);
+      if (y >= by) continue;
+      if ((y - vy) * rstepG < 2.5) break;
+      const al = ss((kCutG - (i + phaseG)) / FADE_ROWS);     // same age-based fade as the road rows
+      ctx.shadowColor = GRID_CYAN;                           // glow stays the saturated hue, like the art
+      ctx.strokeStyle = `rgba(${softCyan(y)},${al})`;        // core is the cyan seen THROUGH .mGround
+      ctx.beginPath();
+      for (let x = 0; x <= W + XSTEP; x += XSTEP) {
+        const yy = hillY(x, y);
+        if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+      }
+      ctx.stroke();
     }
+    ctx.restore();
     // VERTICAL columns converging to the vanishing point — ROSE inside the road, CYAN on the ground.
     // Clipped to END at the far horizon row so the grid terminates cleanly.
     ctx.lineWidth = 1.6;
     const tFar = (farY - vy) / span;
-    for (let j = -24; j <= 24; j++) {                        // wide range so columns still fill the screen when the grid pans with steering
-      const xb = bx + j * gap;
-      if (xb < -W * 0.7 || xb > W * 1.7) continue;
-      const xf = vx + (xb - vx) * tFar;                       // x where this column meets the horizon row
-      const inRoad = Math.abs(xb - bx) <= rwNear;
-      ctx.shadowColor = inRoad ? '#ff9fdd' : '#8ff6ff';
-      ctx.strokeStyle = inRoad ? 'rgba(235,130,205,0.7)' : 'rgba(154,250,255,0.7)';
-      ctx.beginPath(); ctx.moveTo(xf, farY); ctx.lineTo(xb, by); ctx.stroke();
-    }
-    // The two ROAD-EDGE lines (where the pink squares end) drawn BRIGHT neon-blue, converging to the horizon — like the menu.
-    ctx.shadowColor = '#8ff4ff'; ctx.shadowBlur = 8;
-    ctx.strokeStyle = 'rgba(180,252,255,0.95)'; ctx.lineWidth = 2.5;
+    const tVis = (Math.min(by, dashTopY > vy ? dashTopY : by) - vy) / span;   // bottom of the floor you can actually SEE
+    // A column must change colour WHERE IT CROSSES THE ROAD EDGE, not take one colour from its
+    // bottom x. The arcade road is very wide at the near edge (rwNear = 1.35*W), so a bottom-x test
+    // made EVERY column count as "in road" -> all pink, and the ground lost its vertical lines and
+    // read as flat cyan stripes instead of a grid. Clip each pass to the road wedge instead.
+    // (roadWedge is defined up top, next to the hill helpers)
+    // All columns go into ONE path and get a SINGLE stroke() — shadowBlur is charged per draw call,
+    // so stroking each column separately (89 cols x 2 clipped passes) costs ~178 blur ops a frame and
+    // drops arcade from 60fps to ~24. Batched, it's 2. Identical pixels, ~2.5x the framerate.
+    // columns fade into the horizon with the same ramp as the rows — as a vertical gradient on the
+    // stroke, so the whole batched path still costs a single draw call.
+    const colFade = (r, g, b, peak) => fadeGrad(r, g, b, peak === undefined ? 1 : peak);   // eases in, then full menu colour
+    // cyan columns: same horizon ease, but the COLOUR is re-evaluated at each stop so the .mGround
+    // wash deepens with depth exactly as it does in the menu (a flat colour would look too vivid).
+    const cyanColFade = () => {
+      const gr = ctx.createLinearGradient(0, vy, 0, by);
+      for (let i = 0; i <= 6; i++) {
+        const u = i / 6, o = HORIZON_FADE * u;
+        gr.addColorStop(o, `rgba(${softCyan(vy + o * span)},${ss(u).toFixed(3)})`);
+      }
+      gr.addColorStop(HORIZON_FADE + (1 - HORIZON_FADE) * 0.5, `rgba(${softCyan(vy + (HORIZON_FADE + (1 - HORIZON_FADE) * 0.5) * span)},1)`);
+      gr.addColorStop(1, `rgba(${softCyan(by)},1)`);
+      return gr;
+    };
+    let _colsDrawn = 0;                                      // dev: how many columns actually make the path
+    // `hilly` = follow the terrain. The ground columns MUST bend over the same height field as the
+    // ground rows or the two halves of the wireframe come apart. The road's columns stay dead straight.
+    const drawCols = (stroke, glowCol, colGap, jMax, hilly) => {
+      ctx.shadowColor = glowCol; ctx.strokeStyle = stroke;
+      ctx.beginPath();
+      for (let j = -jMax; j <= jMax; j++) {                  // wide range so columns still fill the screen when the grid pans with steering
+        const xb = bx + j * colGap;
+        // NO off-screen cull on xb: every column converges toward the vanishing point, so one whose
+        // BOTTOM is far off-screen is still visible up near the horizon — exactly where the arcade's
+        // ground sits. Culling on xb was starving the ground of vertical lines (it read as stripes).
+        const xf = vx + (xb - vx) * tFar;                     // x where this column meets the horizon row
+        // Cull against the VISIBLE floor band (horizon -> top of the dash), not the whole line. The line
+        // runs on down to y=by, which is far below the dashboard, so testing its bottom x kept columns
+        // that never actually cross anything you can see. With the finer ground pitch that was ~155
+        // columns a frame instead of a handful, and it cost ~3x the framerate.
+        const xv = vx + (xb - vx) * tVis;                     // x where it leaves the visible floor
+        if (Math.max(xf, xv) < 0 || Math.min(xf, xv) > W) continue;
+        _colsDrawn++;
+        if (!hilly) { ctx.moveTo(xf, farY); ctx.lineTo(xb, by); continue; }
+        // walk the column down the screen, riding the terrain
+        const STEPS = 14;
+        for (let s = 0; s <= STEPS; s++) {
+          const yy = farY + (by - farY) * (s / STEPS);
+          const xx = vx + (xb - vx) * ((yy - vy) / span);     // this column's x at that depth
+          const yh = hillY(xx, yy);
+          if (s === 0) ctx.moveTo(xx, yh); else ctx.lineTo(xx, yh);
+        }
+      }
+      ctx.stroke();
+    };
+    ctx.save();                                              // GROUND columns (cyan) — everything OUTSIDE the road wedge
+    ctx.beginPath(); ctx.rect(0, 0, W, H); roadWedge();
+    ctx.clip('evenodd');
+    drawCols(cyanColFade(), GRID_CYAN, gapG, 77, true);      // gapG = finer menu ground pitch; hilly = rides the terrain
+    ctx.restore();
+    ctx.save();                                              // ROAD columns (pink) — INSIDE the road wedge
+    ctx.beginPath(); roadWedge(); ctx.clip();               // road pass opens its own path now
+    drawCols(colFade(255, 70, 205, PINK_COL_A), GRID_PINK, gap, 44, false);   // road stays FLAT; .mGrid verticals are .8 alpha
+    ctx.restore();
+    window.__gridDbg.colsDrawn = _colsDrawn;                 // dev: total columns stroked this frame
+    ctx.shadowBlur = glow;                                   // restore the glow the clipped passes were drawn with
+    // The two ROAD-EDGE lines (where the pink squares end) — BRIGHT neon-blue, converging to the horizon.
+    // These used to be stroked at a FLAT 0.95 alpha and just STOPPED at farY. Everything around them
+    // (rows, columns) fades out into the horizon, so the brightest line on screen was the one thing
+    // ending on a hard edge — and because farY shifts every frame as rows recycle, that endpoint
+    // visibly popped/crawled. Fading it in exactly like the rest makes it dissolve instead.
+    // Both edges go in ONE path so the shadowBlur is charged once, not twice.
+    // Same smoothstep ramp as the rest of the grid, so the edge eases in instead of snapping on at the
+    // horizon (a linear 12px band made it jump 42 -> 203 brightness in 3px).
+    const edgeFade = fadeGrad(191, 244, 255, 0.95);
+    ctx.shadowColor = GRID_CYAN; ctx.shadowBlur = 8;
+    ctx.strokeStyle = edgeFade; ctx.lineWidth = 2.5;
+    ctx.beginPath();
     for (const s of [-1, 1]) {
       const xbEdge = bx + s * rwNear;                         // road edge at the near/bottom
       const xfEdge = vx + (xbEdge - vx) * tFar;               // road edge where it meets the horizon
-      ctx.beginPath(); ctx.moveTo(xfEdge, farY); ctx.lineTo(xbEdge, by); ctx.stroke();
+      ctx.moveTo(xfEdge, farY); ctx.lineTo(xbEdge, by);
     }
+    ctx.stroke();
     ctx.shadowBlur = 0;
+
+    // ---- .mCRT, the last menu layer the arcade floor wasn't getting ----
+    // The menu's CRT overlay carries `box-shadow: inset 0 0 180px 40px rgba(3,1,14,.7)` — a heavy
+    // vignette that is strongest at the LEFT AND RIGHT EDGES, which is exactly where the cyan ground
+    // sits. In arcade .mCRT lives inside #overlay (z-index 1) while the game canvas is z-index 12, so
+    // the DOM backdrop (sun, buildings) gets vignetted but the canvas floor never did — the ground read
+    // brighter and harsher than the menu's. Reproduce it on the floor band only.
+    const vigW = 220;                                        // ~ the blur+spread reach of that box-shadow
+    const vigA = 0.7 * 0.9;                                  // shadow alpha * .mCRT's ~0.9 opacity
+    const floorTop = Math.max(0, vy);
+    for (const side of [0, 1]) {
+      const gv = side
+        ? ctx.createLinearGradient(W, 0, W - vigW, 0)
+        : ctx.createLinearGradient(0, 0, vigW, 0);
+      gv.addColorStop(0, `rgba(3,1,14,${vigA})`);
+      gv.addColorStop(1, 'rgba(3,1,14,0)');
+      ctx.fillStyle = gv;
+      ctx.fillRect(side ? W - vigW : 0, floorTop, vigW, H - floorTop);
+    }
     ctx.restore();
   }
 
@@ -2637,8 +2931,20 @@ function render() {
   }
 
   if (thirdPerson) drawChaseCar(camY, camZ); else drawPlayerCar();   // cockpit interior (shown in arcade too)
-  // ---- city colour filter: grades the whole scene (road + cockpit together) ----
-  if (!arcScene) {
+
+  // ---- city colour filter + vignette ----
+  // The cockpit ART is already identical in both modes (same INTERIORS[interiorIdx]); what made the
+  // arcade interior look wrong — flat and blue instead of DRIVE's warm purple with dark corners — is
+  // that BOTH of these grading passes used to be skipped entirely when arcScene. They're what give
+  // DRIVE's dashboard its colour.
+  // So run them in arcade too, but CLIPPED TO THE COCKPIT BAND. The arcade canvas is transparent above
+  // the dash (the menu art — sun, buildings, palms — shows through from the DOM behind it), so grading
+  // full-screen here would tint the sky and re-tint the neon floor. Clipping keeps the interior
+  // pixel-identical to DRIVE while leaving the scene above it untouched.
+  const gradeTop = arcScene ? Math.max(0, dashTopY) : 0;           // arcade: cockpit only. drive: whole scene, as before.
+  if (!arcScene || gradeTop < H) {
+    ctx.save();
+    if (arcScene) { ctx.beginPath(); ctx.rect(0, gradeTop, W, H - gradeTop); ctx.clip(); }
     const F = FILTERS[filterIdx] || FILTERS[0];
     if (F.tint) {
       ctx.save();
@@ -2650,14 +2956,15 @@ function render() {
       ctx.fillStyle = F.tint; ctx.fillRect(0, 0, W, H);
       ctx.restore();
     }
-  }
-  // vignette — tightens a touch at speed, flashes red as the cops close in (skip in arcScene = keep the scene clean)
-  if (!arcScene) {
+    // vignette — tightens a touch at speed, flashes red as the cops close in.
+    // Geometry is UNCHANGED (still centred on the full screen), so the darkening that lands on the
+    // dashboard is exactly the same as DRIVE's; the clip just discards the part above the cockpit.
     const vg = ctx.createRadialGradient(W/2, H/2, H*(0.3 - boost*0.1), W/2, H/2, H*0.75);
     const redPulse = heat > 0.5 ? (heat - 0.5) * 2 * (0.5 + 0.5*Math.sin(distance*0.02)) : 0;
     vg.addColorStop(0, 'rgba(0,0,0,0)');
     vg.addColorStop(1, `rgba(${Math.round(redPulse*120)},0,${Math.round(redPulse*10)},${0.55 + boost*0.2 + redPulse*0.25})`);
-    ctx.fillStyle = vg; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
   }
   // no-crash practice mode: red flash when you hit a car (so you know), no game over
   if (crashFlash > 0) {
@@ -4603,6 +4910,29 @@ function drawPlayerCar(){
       ctx.imageSmoothingEnabled = true;
       return;
     }
+    // The dashboard art has a TRANSPARENT cut-out across its top (the windscreen) so the road shows
+    // through it. So the top of the dash IMAGE is NOT the top of the visible dash. Find the first
+    // actually-opaque row of the art (scanned once, cached on the image) — the arcade colour grading
+    // clips to that, otherwise it tints the road showing through the cut-out and you get a pink band
+    // floating above the dashboard.
+    const dashOpaqueFrac = (img, s0, sBandH) => {
+      if (img.__opqRow == null) {
+        img.__opqRow = 0;
+        try {
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth; c.height = img.naturalHeight;
+          const g2 = c.getContext('2d', { willReadFrequently: true });
+          g2.drawImage(img, 0, 0);
+          const px = g2.getImageData(0, 0, c.width, c.height).data;
+          scan: for (let y = 0; y < c.height; y++) {
+            for (let x = 0; x < c.width; x += 4) {
+              if (px[(y * c.width + x) * 4 + 3] > 24) { img.__opqRow = y; break scan; }
+            }
+          }
+        } catch (e) { /* tainted canvas -> fall back to the image top */ }
+      }
+      return Math.max(0, Math.min(1, (img.__opqRow - s0) / sBandH));
+    };
     // UNIFIED cockpit: the dashboard is drawn at its NATURAL aspect (never squished) and centered,
     // sized off min(W,H) so it looks identical on phone portrait, phone landscape (rotated), and desktop.
     // Wide screens get their side gaps filled by stretching the dashboard's edge columns outward.
@@ -4615,7 +4945,11 @@ function drawPlayerCar(){
       const land = W >= H * 1.1;
       let dashH, ext;
       if (land) {
-        dashH = Math.min(gameMode === 'arcade' ? H * 0.30 : H * 0.45, W * 0.995 / R);   // arcade: slimmer dash -> more grid + bigger cars
+        // IDENTICAL cockpit in every mode. Arcade used to draw this at 0.30 instead of 0.45, so the
+        // interior was the same art at 0.67x scale — same gauge/wheel/radio, just smaller — which also
+        // faked a higher camera (CAM_H / CAM_MUL / camPitch have no arcade branch; they always matched).
+        // Cost: the visible neon floor drops from ~130px to ~50px, so `gap` below is recalibrated for it.
+        dashH = Math.min(H * 0.45, W * 0.995 / R);
         dashW = dashH * R; ext = H * 0.06;                        // overscan so the dash reaches the bottom edge
       } else {
         // PORTRAIT: fit the WHOLE dashboard across the screen width so NOTHING is cropped off the sides
@@ -4629,6 +4963,9 @@ function drawPlayerCar(){
       const liftY = land ? 0 : H * 0.13;                         // portrait: raise the dashboard well up off the bottom edge (black floor fills below)
       topY = H - dashH;
       { const f = (dashH + ext) / dashH; dashW *= f; dashH *= f; topY = H - dashH + ext - liftY; }
+      // Where the cockpit VISIBLY starts (skipping the transparent windscreen cut-out) — arcade grades
+      // only from here down, so the road seen through the cut-out is left alone. See render().
+      dashTopY = topY + dashOpaqueFrac(photo, s0, sBandH) * dashH;
       dashLeft = (W - dashW) / 2;
       if (dashLeft > 1) {                                         // wide screen: extend the dashboard to the screen edges by stretching a THIN outer column
         const col = Math.max(2, photo.naturalWidth * 0.025);      // (the very edge is dark frame; the cut-out top stays transparent so the road still shows through)
