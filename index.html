@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783868792";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1122,9 +1122,16 @@ function buildRoad() {
   // inside the gap we drop the palms+buildings so it reads as an open intersection, then the block resumes.
   const CROSS_EVERY = 500;  // segments between cross streets (~1000 score)
   const CROSS_SPAN  = 26;   // width of the open intersection, in segments
+  // ARCADE has no intersections. It drives on the endless neon grid, and the whole crossroad ensemble is
+  // city furniture that doesn't belong there: the asphalt cross-street, the zebra crosswalk, the mast-arm
+  // traffic lights with their waiting cross-traffic, and the club-hotel + PALM frontage this block pushes
+  // into the corner (the stray tree that showed up alongside the lights).
+  // Gate it at the SOURCE — with `cross`/`crossEdge` never set, every downstream consumer (the cross-street
+  // fill, drawCrossroad()) simply never fires, so none of them needs its own arcade special-case.
+  const noCross = (gameMode === 'arcade');
   for (let i = 0; i < segments.length; i++) {
     const m = i % CROSS_EVERY;
-    const inCross = m >= (CROSS_EVERY - CROSS_SPAN);      // gap at each ~1000-score boundary (starts with buildings)
+    const inCross = !noCross && m >= (CROSS_EVERY - CROSS_SPAN);   // gap at each ~1000-score boundary (starts with buildings)
     segments[i].cross = inCross;                          // flag for the renderer (asphalt cross-street)
     // crosswalk at the NEAR edge (kind 2), the overhead signal arm on the FAR side of the intersection (kind 1)
     segments[i].crossEdge = inCross && (m === CROSS_EVERY - CROSS_SPAN + 3 ? 2 : m === CROSS_EVERY - 4 ? 1 : 0);
@@ -2362,7 +2369,10 @@ function render() {
     //     y_h = y - (y - vy) * h / camY
     // so the screen displacement is just proportional to depth. The ROAD stays flat — only the ground
     // waves, exactly as in the menu art.
-    const HILL_AMP  = 260;                                    // world units, peak-to-mid
+    // 260 was my first guess and it was far too strong: on the thin band of ground arcade actually
+    // shows, it made the wireframe read as choppy water rather than rolling terrain. 120 gives a
+    // gentle swell. (Displacement on screen is (y-vy)*h/camY, so it scales with depth automatically.)
+    const HILL_AMP  = 120;                                    // world units, peak-to-mid
     const HILL_K1X = 0.00095, HILL_K1Z = 0.00062;             // broad swells
     const HILL_K2X = 0.00210, HILL_K2Z = 0.00145;             // finer ripples on top
     const hillH = (wx, wz) => HILL_AMP * (
@@ -2391,10 +2401,15 @@ function render() {
     const HORIZON_FADE = Math.min(0.5, (visFloor * 0.5) / span);
     // gradient that follows the smoothstep curve (canvas gradients are linear between stops, so the
     // curve is sampled at a few points)
+    // FADE_STOPS: canvas interpolates LINEARLY between colour stops, so the smoothstep is only as smooth
+    // as it is sampled. At 6 steps the ramp is 6 straight chords and the joints read as faint banding
+    // across a 23px band; 16 puts a stop every ~1.4px, which is finer than the eye can pick out.
+    // Gradients are rebuilt once per frame, not per line, so the extra stops are free.
+    const FADE_STOPS = 16;
     const fadeGrad = (r, g, b, peak) => {
       const gr = ctx.createLinearGradient(0, vy, 0, by);
-      for (let i = 0; i <= 6; i++) {
-        const u = i / 6;
+      for (let i = 0; i <= FADE_STOPS; i++) {
+        const u = i / FADE_STOPS;
         gr.addColorStop(HORIZON_FADE * u, `rgba(${r},${g},${b},${(ss(u) * peak).toFixed(3)})`);
       }
       gr.addColorStop(1, `rgba(${r},${g},${b},${peak})`);
@@ -2432,13 +2447,11 @@ function render() {
     // kCut = that coordinate at the cutoff below, i.e. the moment a row is born.
     const kCut = Math.log((2.5 / rstep) / span) / Math.log(1 - rstep);
     const FADE_ROWS = 1.2;                                   // ease in over ~1.2 row-steps of travel
-    let farY = by;                                           // farthest row drawn -> where the horizon line sits
     ctx.shadowBlur = glow;
     for (let i = 0; i < 90; i++) {
       const y = vy + span * Math.pow(1 - rstep, i + phase);
       if (y >= by) continue;
       if ((y - vy) * rstep < 2.5) break;                     // stop before rows are packed tighter than their own 2px thickness
-      farY = y;
       const t = (y - vy) / span;                             // 0 at horizon .. 1 at the bottom
       const xc = vx + (bx - vx) * t;                         // road centre at this depth
       const rhw = rwNear * t;                                // road half-width at this depth
@@ -2495,7 +2508,18 @@ function render() {
     // VERTICAL columns converging to the vanishing point — ROSE inside the road, CYAN on the ground.
     // Clipped to END at the far horizon row so the grid terminates cleanly.
     ctx.lineWidth = 1.6;
-    const tFar = (farY - vy) / span;
+    // ---- WHERE THE COLUMNS END AT THE HORIZON ----
+    // They used to stop at farY, the farthest ROAD ROW drawn this frame. That row is recycled: as `phase`
+    // scrolls, the far row creeps down and the next is born behind it, so (farY - vy) sawtooths between
+    // 3.2px and 14.5px once per row cycle. The column fade is a screen-Y gradient, so a line CUT at farY
+    // ends on a hard edge whose alpha rides that sawtooth — measured, it swings 0.05 -> 0.69 and snaps
+    // back every cycle. That IS the "verticals pop instead of fading in": their far ends were being
+    // chopped off at up to 69% alpha, and the chop moved every frame.
+    // Run them to the horizon instead and let the gradient dissolve them — alpha is 0 at vy by
+    // construction, so the far end vanishes smoothly and no longer depends on `phase` at all.
+    // (hillY() is guarded for dy <= 0.5, so starting this close to vy is safe.)
+    const colTopY = vy + 0.5;
+    const tTop = (colTopY - vy) / span;
     const tVis = (Math.min(by, dashTopY > vy ? dashTopY : by) - vy) / span;   // bottom of the floor you can actually SEE
     // A column must change colour WHERE IT CROSSES THE ROAD EDGE, not take one colour from its
     // bottom x. The arcade road is very wide at the near edge (rwNear = 1.35*W), so a bottom-x test
@@ -2512,8 +2536,8 @@ function render() {
     // wash deepens with depth exactly as it does in the menu (a flat colour would look too vivid).
     const cyanColFade = () => {
       const gr = ctx.createLinearGradient(0, vy, 0, by);
-      for (let i = 0; i <= 6; i++) {
-        const u = i / 6, o = HORIZON_FADE * u;
+      for (let i = 0; i <= FADE_STOPS; i++) {
+        const u = i / FADE_STOPS, o = HORIZON_FADE * u;
         gr.addColorStop(o, `rgba(${softCyan(vy + o * span)},${ss(u).toFixed(3)})`);
       }
       gr.addColorStop(HORIZON_FADE + (1 - HORIZON_FADE) * 0.5, `rgba(${softCyan(vy + (HORIZON_FADE + (1 - HORIZON_FADE) * 0.5) * span)},1)`);
@@ -2531,7 +2555,7 @@ function render() {
         // NO off-screen cull on xb: every column converges toward the vanishing point, so one whose
         // BOTTOM is far off-screen is still visible up near the horizon — exactly where the arcade's
         // ground sits. Culling on xb was starving the ground of vertical lines (it read as stripes).
-        const xf = vx + (xb - vx) * tFar;                     // x where this column meets the horizon row
+        const xf = vx + (xb - vx) * tTop;                     // x where this column reaches the horizon
         // Cull against the VISIBLE floor band (horizon -> top of the dash), not the whole line. The line
         // runs on down to y=by, which is far below the dashboard, so testing its bottom x kept columns
         // that never actually cross anything you can see. With the finer ground pitch that was ~155
@@ -2539,11 +2563,11 @@ function render() {
         const xv = vx + (xb - vx) * tVis;                     // x where it leaves the visible floor
         if (Math.max(xf, xv) < 0 || Math.min(xf, xv) > W) continue;
         _colsDrawn++;
-        if (!hilly) { ctx.moveTo(xf, farY); ctx.lineTo(xb, by); continue; }
+        if (!hilly) { ctx.moveTo(xf, colTopY); ctx.lineTo(xb, by); continue; }
         // walk the column down the screen, riding the terrain
         const STEPS = 14;
         for (let s = 0; s <= STEPS; s++) {
-          const yy = farY + (by - farY) * (s / STEPS);
+          const yy = colTopY + (by - colTopY) * (s / STEPS);
           const xx = vx + (xb - vx) * ((yy - vy) / span);     // this column's x at that depth
           const yh = hillY(xx, yy);
           if (s === 0) ctx.moveTo(xx, yh); else ctx.lineTo(xx, yh);
@@ -2566,7 +2590,8 @@ function render() {
     // These used to be stroked at a FLAT 0.95 alpha and just STOPPED at farY. Everything around them
     // (rows, columns) fades out into the horizon, so the brightest line on screen was the one thing
     // ending on a hard edge — and because farY shifts every frame as rows recycle, that endpoint
-    // visibly popped/crawled. Fading it in exactly like the rest makes it dissolve instead.
+    // visibly popped/crawled. They now run to the same phase-independent colTopY as the columns and
+    // carry the same ramp, so they dissolve into the horizon instead of ending on a moving cut.
     // Both edges go in ONE path so the shadowBlur is charged once, not twice.
     // Same smoothstep ramp as the rest of the grid, so the edge eases in instead of snapping on at the
     // horizon (a linear 12px band made it jump 42 -> 203 brightness in 3px).
@@ -2576,8 +2601,8 @@ function render() {
     ctx.beginPath();
     for (const s of [-1, 1]) {
       const xbEdge = bx + s * rwNear;                         // road edge at the near/bottom
-      const xfEdge = vx + (xbEdge - vx) * tFar;               // road edge where it meets the horizon
-      ctx.moveTo(xfEdge, farY); ctx.lineTo(xbEdge, by);
+      const xfEdge = vx + (xbEdge - vx) * tTop;               // road edge where it reaches the horizon
+      ctx.moveTo(xfEdge, colTopY); ctx.lineTo(xbEdge, by);
     }
     ctx.stroke();
     ctx.shadowBlur = 0;
