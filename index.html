@@ -152,9 +152,9 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
      The audio-spectrum RING (.mSunViz) is back on: it draws bars around the sun, not a disc over it, so it
      can't double up. It was collateral damage of hiding both — its SUN{} geometry was still calibrated to
      the OLD artwork (a much larger, higher sun), so it had to be re-measured against the current images
-     before it could be shown again. Hidden in arcade, where the sun is just distant backdrop. */
+     before it could be shown again. Shown in ARCADE too — the game canvas is transparent above the horizon,
+     so the ring reads through it around the backdrop sun. */
   #overlay .mSunFront { display: none !important; }
-  body.arcadeScene #overlay .mSunViz { display: none !important; }
   /* ===== editable palm trees (dev-placeable) — soft-pink neon ===== */
   #overlay #mTrees { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
   #overlay .mTreeEl { position: absolute; width: auto; transform-origin: bottom center; user-select: none; -webkit-user-drag: none;
@@ -6839,7 +6839,9 @@ function playSkyIntro() {
   // skyline, the palms and the road all move as one world. They MUST be identical: the canvas and the
   // backdrop share a vanishing point, so animating one alone slides the neon grid off the buildings it is
   // drawn to sit under. (Same transform-origin too — both boxes are the full viewport.)
-  const els = [bg, document.getElementById('game')].filter(Boolean);
+  // .mSunViz rides along too — otherwise the spectrum ring sits sharp and still while the world it's
+  // painted on blurs/slides in around it.
+  const els = [bg, document.getElementById('game'), document.querySelector('#overlay .mSunViz')].filter(Boolean);
   // Restarting a CSS animation needs the old one CLEARED and a reflow forced — just re-assigning the same
   // animation name is a no-op, so a second press would do nothing at all.
   els.forEach(el => { el.style.animation = 'none'; });
