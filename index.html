@@ -46,6 +46,32 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   body.arcadeScene #overlay .mGround,
   body.arcadeScene #overlay .mHorizon,
   body.arcadeScene #overlay .mPalm { display: none !important; }
+  /* ===== MENU -> ARCADE transition =====
+     The menu backdrop (skyline, sun, palms) IS the arcade backdrop — same art, already on screen — so the
+     WORLD doesn't need to transition at all. Only the car has to arrive. Sell that: a CRT tear + chroma
+     flash over the whole frame while the cockpit slams up from below (see introT in drawPlayerCar), then
+     the HUD powers on once the dash has landed. Pure CSS on a single overlay, so it costs nothing to run
+     and nothing when idle (opacity 0, no animation). */
+  #introFx { position: fixed; inset: 0; z-index: 6; pointer-events: none; opacity: 0; }
+  body.arcadeIntro #introFx {
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.30) 0 2px, rgba(0,0,0,0) 2px 5px),
+      linear-gradient(96deg, rgba(255,43,214,.30), rgba(0,240,255,.30));
+    mix-blend-mode: screen;
+    animation: introGlitch .85s steps(3, end) 1 forwards;
+  }
+  @keyframes introGlitch {
+    0%   { opacity: 1;   transform: translate3d(-9px,0,0) scaleY(1.03); }
+    12%  { opacity: .85; transform: translate3d(10px,2px,0) scaleY(.99); }
+    26%  { opacity: .95; transform: translate3d(-6px,-2px,0) scaleY(1.02); }
+    44%  { opacity: .6;  transform: translate3d(5px,0,0); }
+    64%  { opacity: .38; transform: translate3d(-3px,1px,0); }
+    82%  { opacity: .18; transform: translate3d(2px,0,0); }
+    100% { opacity: 0;   transform: none; }
+  }
+  /* HUD powers on only after the dash has landed */
+  body.arcadeIntro #hud { animation: introHud .85s ease-out 1 forwards; }
+  @keyframes introHud { 0%, 55% { opacity: 0; } 75% { opacity: .45; } 100% { opacity: 1; } }
   #hud {
     position: fixed; top: 0; left: 0; right: 0; padding: 18px 22px;
     display: flex; justify-content: space-between; align-items: flex-start;
@@ -669,7 +695,7 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <div class="lcTrack"><div id="loadBar"></div></div>
 </div></div>
 <audio id="bgMusic" loop></audio>
-<div id="hud" class="hidden"></div><button id="muteBtn" title="Change track">♪</button>
+<div id="hud" class="hidden"></div><div id="introFx" aria-hidden="true"></div><button id="muteBtn" title="Change track">♪</button>
 <button id="settingsBtn" title="Settings">⚙</button>
 <div id="radio">
   <span class="rlab">📻</span>
@@ -1390,6 +1416,13 @@ let trafficClear = 0;                  // >0 = road is cleared (no traffic drawn
 let trafficFadeIn = 0;                 // >0 = traffic is fading back in after a cleared-road breather (so it doesn't pop)
 let trafficThin = 0;                   // >0 = 5k milestone: most cars fade OUT (keep a few) then fade back in — "a bit of cars"
 let boostMph = 0;                      // X/Square: each press adds +15 mph (stacks toward 300), fades over time
+// ARCADE INTRO: menu -> arcade. The backdrop is the SAME art in both, so the world needs no transition —
+// only the car arrives. introAt = when ARCADE was pressed; introP() is 0..1 over INTRO_MS, and 1 (done)
+// whenever we're not in an intro, so every consumer can just read it without a mode check.
+const INTRO_MS = 850;
+let introAt = 0;
+let introTearX = 0;                    // horizontal glitch tear on the cockpit while it boots in
+const introP = () => (introAt ? Math.min(1, (performance.now() - introAt) / INTRO_MS) : 1);
 window.__freeze = function(v){ dbgFreeze = v !== false; };
 window.__city = function(i){
   i = ((i % CITIES.length) + CITIES.length) % CITIES.length;
@@ -5017,10 +5050,23 @@ function drawPlayerCar(){
       const liftY = land ? 0 : H * 0.13;                         // portrait: raise the dashboard well up off the bottom edge (black floor fills below)
       topY = H - dashH;
       { const f = (dashH + ext) / dashH; dashW *= f; dashH *= f; topY = H - dashH + ext - liftY; }
+      // ---- ARCADE BOOT-IN: the cockpit arrives ----
+      // Drive it off topY/dashLeft rather than a canvas transform, because EVERYTHING in the cockpit
+      // (dashTopY, the radio screen, the wheel, the arcade colour grade) is mapped from those two — so the
+      // whole interior travels together for free, and dashTopY stays honest, which matters because the
+      // grid's horizon fade is measured against it.
+      const _ip = introP();
+      if (_ip < 1) {
+        const e = 1 - Math.pow(1 - _ip, 3);                      // ease-out: rushes up, settles soft
+        topY += (1 - e) * (dashH + ext) * 1.15;                  // starts fully below the frame
+        const tear = Math.max(0, 1 - _ip / 0.72);                // tearing dies out before it lands
+        if (Math.random() < 0.45 * tear) introTearX = (Math.random() * 2 - 1) * 34 * tear;
+        else introTearX *= 0.55;                                 // decay between tears so it doesn't strobe
+      } else introTearX = 0;
       // Where the cockpit VISIBLY starts (skipping the transparent windscreen cut-out) — arcade grades
       // only from here down, so the road seen through the cut-out is left alone. See render().
       dashTopY = topY + dashOpaqueFrac(photo, s0, sBandH) * dashH;
-      dashLeft = (W - dashW) / 2;
+      dashLeft = (W - dashW) / 2 + introTearX;                   // horizontal tear while the cockpit boots in (0 otherwise)
       if (dashLeft > 1) {                                         // wide screen: extend the dashboard to the screen edges by stretching a THIN outer column
         const col = Math.max(2, photo.naturalWidth * 0.025);      // (the very edge is dark frame; the cut-out top stays transparent so the road still shows through)
         ctx.drawImage(photo, 0, s0, col, sBandH, 0, topY, dashLeft + 1, dashH);                                            // left
@@ -6491,6 +6537,9 @@ function beginRun(mode) {
   if (mode === 'cruise' || mode === 'arcade') gameMode = mode;   // explicit start sets mode; restarts keep the current mode
   if (_scoreCountRAF) { cancelAnimationFrame(_scoreCountRAF); _scoreCountRAF = null; }   // stop the crash score count-up (+ its ticking sound)
   const _arc = (gameMode === 'arcade');
+  // Play the boot-in only when ARCADE is pressed FROM THE MENU (mode is passed). A restart after a crash
+  // passes no mode, and you're already sitting in the car there — replaying the intro would be a tic.
+  const _intro = (_arc && mode === 'arcade');
   document.body.classList.toggle('arcadeScene', _arc);                       // arcade drives over the real CSS menu scene
   // arcade shows the REAL menu scene: the .mBg image (grid/sun/buildings) + its placed trees (#mTrees) — everything
   // exactly like the main page; only hide the leftover old CSS scene bits (already hidden globally anyway).
@@ -6500,6 +6549,13 @@ function beginRun(mode) {
   document.getElementById('hud').classList.remove('hidden');
   freeGarageFrames();                                        // gameplay only needs the ~20 traffic frames -> free garage's 360
   reset();
+  // Start the intro clock AFTER reset(): buildRoad() takes ~130ms, and starting it before meant the first
+  // frame you actually saw was already 15% in — the cockpit had climbed a fifth of the way before it was
+  // ever painted, so the boot-in lost its opening beat.
+  introAt = _intro ? performance.now() : 0;
+  introTearX = 0;
+  document.body.classList.toggle('arcadeIntro', _intro);
+  if (_intro) setTimeout(() => document.body.classList.remove('arcadeIntro'), INTRO_MS);
   if (!musicStarted) { startMusic(); musicStarted = true; }   // start once; keep whatever you switched to across deaths
 }
 document.getElementById('startBtn').addEventListener('click', () => beginRun('cruise'));
