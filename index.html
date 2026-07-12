@@ -3727,7 +3727,7 @@ function drawScene(sc, side, worldX, segPt, fog, camY, camZ, clipY, fade, city){
     // arcade blits the PRE-BAKED pink palm (see ARC_PALM_FILTER) — no per-draw ctx.filter
     const palmImg = _isArc ? arcPalmPink : scPalm;
     if (palmImg && (_isArc || (palmImg.complete && palmImg.naturalWidth))) {
-      const ph = unit * sc.h * (_isArc ? 1.42 : 1.9), pw = ph * (palmImg.width / palmImg.height);   // arcade: smaller palms = clean avenue, not a wall
+      const ph = unit * sc.h * 1.9, pw = ph * (palmImg.width / palmImg.height);   // same palm scale in every mode (arcade's old 1.42 made the world read as zoomed-out)
       ctx.imageSmoothingEnabled = _isArc;   // smooth the main-page palm; keep the pixel sprite crisp
       ctx.drawImage(palmImg, sp.sx - pw/2, sp.sy - ph, pw, ph);
       ctx.imageSmoothingEnabled = true;
@@ -4079,7 +4079,10 @@ function drawCar(car, b, fog, clipY, front, fade, bf){
     const refW = model.rear.naturalWidth || 572;
     // frames are union-bbox cropped (751px = the wide SIDE view); the rear car fills only ~45% of that,
     // so we size relative to the visible rear car, not the padded frame. tune live: window.__carW = 0.9
-    const CARW = (typeof window.__carW === 'number' ? window.__carW : (gameMode === 'arcade' ? 0.82 : 1.0));   // arcade: a touch smaller so they sit right on the grid
+    // One car scale in every mode. The projection is already identical (CAM_DEPTH / CAM_H / CAM_MUL /
+    // camPitch have no arcade branch), so arcade's old 0.82 wasn't a camera difference — it just drew the
+    // same world smaller, which is what made arcade read as zoomed-out next to DRIVE.
+    const CARW = (typeof window.__carW === 'number' ? window.__carW : 1.0);
     const scale = b.sw * CARW / refW;                      // uniform scale across angles (like the garage), grows with nearness
     const SQ = (typeof window.__carSq === 'number' ? window.__carSq : 1.0);        // vertical squash (1.0 = none; low render angle means it's not needed)
     let dw = frame.naturalWidth * scale, dh = frame.naturalHeight * scale * SQ;
