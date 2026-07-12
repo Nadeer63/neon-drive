@@ -24,15 +24,21 @@ Usage:  python3 tools/make_arcade_bg.py      (from the project root; needs Pillo
 from PIL import Image
 
 # sun geometry, same numbers the visualiser uses (see SUN in index.html)
-# The push (last column) must keep the map monotonic, or columns would fold over each other and the skyline
-# would smear. That needs  A * pi / (halfW - R) < 1  ->  A < ~183px landscape, ~104px portrait. Well clear.
+# The push is given as a FRACTION OF EACH IMAGE'S OWN CEILING, never as a raw pixel count.
+# That matters: portrait is half as wide as landscape (halfW 384 vs 688), so its ceiling is roughly half.
+# A pixel amount that is comfortable in landscape is near-fatal in portrait — a shared "170px" put portrait
+# at 96% of its limit, squeezing columns 27x, which flattened the sun's sides and smeared the skyline into
+# the horizon. The fraction below is the worst-case COMPRESSION: 0.75 means columns never get squeezed more
+# than 4x, and only at the very frame edge.
 JOBS = [
-    ('assets/menu_bg_land_back2.png',     'assets/menu_bg_land_arcade.png',     0.500, 0.297, 170),
-    ('assets/menu_bg_portrait_back2.png', 'assets/menu_bg_portrait_arcade.png', 0.500, 0.084, 100),
+    ('assets/menu_bg_land_back2.png',     'assets/menu_bg_land_arcade.png',     0.500, 0.297, 0.75),
+    ('assets/menu_bg_portrait_back2.png', 'assets/menu_bg_portrait_arcade.png', 0.500, 0.084, 0.55),
 ]
 
 
-def build(src_path, dst_path, cx_frac, d_frac, amount):
+def build(src_path, dst_path, cx_frac, d_frac, squeeze):
+    from math import sin, pi
+
     im = Image.open(src_path).convert('RGBA')
     W, H = im.size
     src = im.load()
@@ -40,19 +46,27 @@ def build(src_path, dst_path, cx_frac, d_frac, amount):
     dst = out.load()
 
     cx = cx_frac * W
-    R = d_frac * H / 2.0          # sun radius: inside this, nothing moves
+    R = d_frac * H / 2.0
+    R0 = R * 1.30                 # start the ramp CLEAR of the sun, not right on its rim
     halfW = max(cx, W - cx)
+    L = halfW - R0
 
-    # Build dest->src for one column at a time. The forward map is monotonic (A * pi / (halfW - R) < 1),
-    # so a simple scan inversion is exact enough at 1px resolution.
-    from math import sin, pi
+    # Window: sin^2, not sin. sin() has its steepest slope at both ENDS of the ramp, so the old map pinched
+    # exactly at the sun's rim and at the frame edge — which is what flattened the sun into a squared-off
+    # disc. sin^2 has ZERO slope at both ends, so the warp eases in and out and neither the sun nor the edge
+    # is compressed.
+    #   amount is derived from the ceiling: max|w'| = pi/L, so a push of A gives a worst-case column
+    #   spacing of 1 - A*pi/L. Solving for a chosen squeeze gives A directly, and it can never fold over.
+    amount = squeeze * L / pi
+
     fwd = []
     for x in range(W):
         d = abs(x - cx)
-        if d <= R or halfW <= R:
+        if d <= R0 or L <= 0:
             push = 0.0
         else:
-            push = amount * sin(pi * (d - R) / (halfW - R))
+            u = (d - R0) / L
+            push = amount * (sin(pi * u) ** 2)
         sign = 1.0 if x >= cx else -1.0
         fwd.append(x + push * sign)
 
@@ -82,9 +96,14 @@ def build(src_path, dst_path, cx_frac, d_frac, amount):
             )
     out.save(dst_path)
     peak = max(abs(fwd[x] - x) for x in range(W))
-    print(f'{dst_path}: {W}x{H}  sun R={R:.0f}px untouched, max push {peak:.0f}px')
+    slope = min(fwd[i] - fwd[i - 1] for i in range(1, W))
+    folded = sum(1 for i in range(1, W) if fwd[i] < fwd[i - 1])
+    print(f'{dst_path}: {W}x{H} | sun R={R:.0f}px untouched (ramp starts {R0:.0f}px) | '
+          f'max push {peak:.0f}px | min column spacing {slope:.2f}px ({1/max(slope,1e-6):.1f}x squeeze) | folded={folded}')
+    assert folded == 0, 'columns folded over — the skyline would smear'
+    assert slope > 0.2, 'columns squeezed too hard — visible smear at the frame edge'
 
 
 if __name__ == '__main__':
-    for s, d, cx, df, amt in JOBS:
-        build(s, d, cx, df, amt)
+    for s, d, cx, df, sq in JOBS:
+        build(s, d, cx, df, sq)
