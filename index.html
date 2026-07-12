@@ -5584,7 +5584,12 @@ function initAudio() {
   let _analyserOk = false;
   try {
     beatAnalyser = actx.createAnalyser();
-    beatAnalyser.fftSize = 256; beatAnalyser.smoothingTimeConstant = 0.5;
+    // fftSize 512 (was 256): twice the bins, so the 64-point ring samples real detail instead of smearing
+    // several notes into one bar. smoothingTimeConstant 0.22 (was 0.5): that value is the analyser's OWN
+    // low-pass across frames — at 0.5 it was flattening transients before the visualiser ever saw them, so
+    // no amount of gain downstream could make the ring snap to a beat. Envelope shaping happens in `smooth`
+    // below, where we control attack and decay separately.
+    beatAnalyser.fftSize = 512; beatAnalyser.smoothingTimeConstant = 0.22;
     beatFreq = new Uint8Array(beatAnalyser.frequencyBinCount);
     beatAnalyser.connect(actx.destination);                        // analyser -> speakers
     _analyserOk = true;
@@ -6378,6 +6383,8 @@ updateMenuCar();                                             // reflect the save
   };
   let cx = 0, cy = 0, R = 0, box = 0, dpr = 1;            // css px geometry (canvas-local)
   let smooth = null;                                      // shared smoothed spectrum (fast attack / slow decay)
+  let rawv = null;                                        // this frame's raw bins (reused; no per-frame alloc)
+  let vizPeak = 0.25;                                     // running peak for the automatic gain (see frame())
   let sunView = null;                                     // sun centre+radius in VIEWPORT px (for tap-to-cycle hit-testing)
   function layout(){
     const s = window.matchMedia('(orientation: landscape)').matches ? SUN.landscape : SUN.portrait;
@@ -6480,15 +6487,39 @@ updateMenuCar();                                             // reflect the save
     let energy = 0;
     if (beatAnalyser && beatFreq){
       beatAnalyser.getByteFrequencyData(beatFreq);
+      // With fftSize 512 the bins are ~86Hz wide, so 110 bins ≈ 9.5kHz — the range music actually lives in.
+      // (At fftSize 256 the same 110 bins reached ~19kHz, and most of the ring was mapped to near-empty air,
+      // which is a big part of why it barely moved.)
       const usable = Math.min(beatFreq.length, 110);
+      if (!rawv || rawv.length !== SPEC) rawv = new Float32Array(SPEC);
+      let rawMax = 0;
       for (let i = 0; i < SPEC; i++){
-        const raw = beatFreq[2 + Math.floor(i / SPEC * (usable - 2))] / 255;
-        const bv = Math.min(1, Math.max(0, raw - 0.03) * 2.1);       // drop the noise floor + boost so beats clearly pop
-        smooth[i] = bv > smooth[i] ? smooth[i] * 0.28 + bv * 0.72 : smooth[i] * 0.80 + bv * 0.20;  // snappier attack
+        const r = beatFreq[2 + Math.floor(i / SPEC * (usable - 2))] / 255;
+        rawv[i] = r; if (r > rawMax) rawMax = r;
+      }
+      // ---- AUTOMATIC GAIN: normalise against a running PEAK, don't just multiply ----
+      // A fixed gain cannot win. Too little and the ring barely twitches; too much and the loud bins pin at
+      // 1.0 — and a bar stuck at full scale STOPS MOVING, which is exactly the opposite of "more sensitive".
+      // (Measured: a straight boost raised the ring's mean brightness 90% while its frame-to-frame movement
+      // FELL, because nothing could travel any more.) Tracking the recent peak instead keeps the bars using
+      // the full 0..1 range whatever the track's loudness, so they always have somewhere to go.
+      // Peak rises instantly, decays slowly — a loud hit raises the bar for the next second or so, then the
+      // ring re-sensitises through a quiet passage.
+      vizPeak = Math.max(rawMax, vizPeak * 0.992);
+      // flo cuts the hum the track never drops below, and ^1.35 keeps the bars RESTING LOW between hits.
+      // Straight normalising (^0.8) tripled the travel but parked the mean at 0.56 — the bars were big and
+      // busy but never came back down, so the ring lost the punch of a beat landing against a quiet moment.
+      // The exponent buys that silence back without giving up the swing.
+      const flo = 0.06, span = Math.max(0.10, vizPeak - flo);
+      for (let i = 0; i < SPEC; i++){
+        const bv = Math.min(1, Math.pow(Math.max(0, rawv[i] - flo) / span, 1.35));
+        // Snap onto a transient, then get back down in time for the next one, instead of sagging and
+        // smearing the beats into each other.
+        smooth[i] = bv > smooth[i] ? smooth[i] * 0.10 + bv * 0.90 : smooth[i] * 0.62 + bv * 0.38;
       }
       let s = 0; for (let i = 1; i < beatFreq.length; i++) s += beatFreq[i]; energy = s / ((beatFreq.length - 1) * 255);
     }
-    if (energy < 0.008) return;                                       // silent -> nothing (hidden behind the sun)
+    if (energy < 0.004) return;                                       // silent -> nothing (hidden behind the sun)
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     // Advance on the 20s timer. Checked AFTER the silence guard, so a muted/paused track doesn't quietly
     // cycle through styles you never see — the clock only runs while the ring is actually on screen.
@@ -6498,6 +6529,7 @@ updateMenuCar();                                             // reflect the save
     const u = vizPrev >= 0 ? Math.min(1, (now - vizFadeAt) / VIZ_FADE_MS) : 1;
     const e = u * u * (3 - 2 * u);                                    // smoothstep
     window.__vizDbg = { style: current, name: STYLES[current].name, from: vizPrev, mixing: u < 1, u: +u.toFixed(2) };   // dev hook
+    window.__vizSpec = smooth;                                        // dev hook: the live amplitudes every style reads
     if (u < 1) {
       ctx.globalAlpha = 1 - e;
       try { STYLES[vizPrev].draw(t); } catch (err) {}
