@@ -6550,33 +6550,96 @@ function beginRun(mode) {
 const blkCv = document.getElementById('introBlocks');
 const blkCtx = blkCv.getContext('2d');
 let blkHideDash = false;                                     // true = cockpit geometry runs, cockpit ART is withheld
-const BLK_PX = 18;                                           // tile size (px) — small, so it reads as pixels
 const BLK_IN = 300, BLK_HOLD = 80, BLK_OUT = 430;            // storm in / stay solid / clear away  (~810ms)
-// ---- TILE STYLE: the game's own look, not confetti ----
-// Neon Drive is dark navy/violet with GLOWING NEON OUTLINES — the grid floor is literally #41edf1 cyan and
-// #ff46cd pink strokes on near-black. So the tiles are mostly DARK with lit edges, and only a few are solid
-// neon. Flat saturated fills (the first cut) read as random noise from some other game.
-const BLK_DARK = '#0d0320';                                  // the interior's own near-black violet
-const BLK_CYAN = '#41edf1', BLK_PINK = '#ff46cd';            // GRID_CYAN / GRID_PINK, straight off the floor
-// style per tile, weighted: mostly dark-with-a-lit-edge, a few solid neon, the odd hot white pixel
-//   0 dark   1 cyan edge   2 pink edge   3 solid cyan   4 solid pink   5 hot white
-const BLK_MIX = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,4,5];     // outlines dominate; solids/white stay rare
+// ================= 20 TILE STYLES — press I in arcade to cycle =================
+// A style is data, not code, so every one of them still batches: tiles are bucketed by LAYER, and each
+// layer is drawn as ONE path with ONE fill()/stroke(). shadowBlur is charged per DRAW CALL, so glowing
+// tiles individually would be ~600 blur passes a frame; this stays at a handful whatever the style.
+//   px    tile size            glow  shadowBlur (0 = flat, no glow pass)
+//   shape sq | inset | dot | bar | vbar | round | frame
+//   L     layers, each { t:'fill'|'stroke', c:colour, w:weight }  — w decides how common that layer is
+const C = { dark:'#0d0320', cyan:'#41edf1', pink:'#ff46cd', white:'#ffffff', violet:'#b026ff',
+            amber:'#ffb03a', lime:'#7CFF4F', ice:'#bdf4ff', blood:'#ff2b5e', deep:'#1b0740', black:'#04010a' };
+const BLK_STYLES = [
+  { name:'NEON WIREFRAME', px:18, glow:6, shape:'sq',
+    L:[{t:'fill',c:C.dark,w:8},{t:'stroke',c:C.cyan,w:4},{t:'stroke',c:C.pink,w:4},{t:'fill',c:C.cyan,w:1},{t:'fill',c:C.pink,w:1},{t:'fill',c:C.white,w:1}] },
+  { name:'SOLID CONFETTI', px:22, glow:0, shape:'sq',
+    L:[{t:'fill',c:C.pink,w:3},{t:'fill',c:C.cyan,w:3},{t:'fill',c:C.violet,w:2},{t:'fill',c:C.deep,w:3},{t:'fill',c:C.white,w:1}] },
+  { name:'DARK + CYAN ONLY', px:16, glow:7, shape:'sq',
+    L:[{t:'fill',c:C.dark,w:10},{t:'stroke',c:C.cyan,w:5},{t:'fill',c:C.cyan,w:1}] },
+  { name:'DARK + PINK ONLY', px:16, glow:7, shape:'sq',
+    L:[{t:'fill',c:C.dark,w:10},{t:'stroke',c:C.pink,w:5},{t:'fill',c:C.pink,w:1}] },
+  { name:'FINE PIXELS', px:9, glow:0, shape:'sq',
+    L:[{t:'fill',c:C.dark,w:9},{t:'fill',c:C.cyan,w:2},{t:'fill',c:C.pink,w:2},{t:'fill',c:C.white,w:1}] },
+  { name:'CHUNKY SLABS', px:38, glow:8, shape:'sq',
+    L:[{t:'fill',c:C.dark,w:7},{t:'stroke',c:C.cyan,w:3},{t:'stroke',c:C.pink,w:3},{t:'fill',c:C.violet,w:1}] },
+  { name:'SCANLINE BARS', px:16, glow:5, shape:'bar',
+    L:[{t:'fill',c:C.cyan,w:4},{t:'fill',c:C.pink,w:4},{t:'fill',c:C.white,w:1},{t:'fill',c:C.dark,w:6}] },
+  { name:'VERTICAL RAIN', px:14, glow:5, shape:'vbar',
+    L:[{t:'fill',c:C.cyan,w:5},{t:'fill',c:C.pink,w:3},{t:'fill',c:C.dark,w:7},{t:'fill',c:C.white,w:1}] },
+  { name:'DOT MATRIX', px:20, glow:6, shape:'dot',
+    L:[{t:'fill',c:C.cyan,w:5},{t:'fill',c:C.pink,w:5},{t:'fill',c:C.white,w:1}] },
+  { name:'HOLLOW FRAMES', px:20, glow:9, shape:'frame',
+    L:[{t:'stroke',c:C.cyan,w:5},{t:'stroke',c:C.pink,w:5},{t:'stroke',c:C.white,w:1}] },
+  { name:'ROUNDED TILES', px:20, glow:6, shape:'round',
+    L:[{t:'fill',c:C.dark,w:7},{t:'fill',c:C.cyan,w:3},{t:'fill',c:C.pink,w:3},{t:'fill',c:C.white,w:1}] },
+  { name:'INSET CHIPS', px:22, glow:5, shape:'inset',
+    L:[{t:'fill',c:C.cyan,w:4},{t:'fill',c:C.pink,w:4},{t:'fill',c:C.violet,w:2},{t:'fill',c:C.white,w:1}] },
+  { name:'ICE / MONOCHROME', px:16, glow:7, shape:'sq',
+    L:[{t:'fill',c:C.black,w:9},{t:'stroke',c:C.ice,w:5},{t:'fill',c:C.ice,w:1},{t:'fill',c:C.white,w:1}] },
+  { name:'HOT PINK BLOOM', px:18, glow:14, shape:'sq',
+    L:[{t:'fill',c:C.dark,w:6},{t:'fill',c:C.pink,w:4},{t:'stroke',c:C.pink,w:4},{t:'fill',c:C.white,w:1}] },
+  { name:'CYAN BLOOM', px:18, glow:14, shape:'sq',
+    L:[{t:'fill',c:C.dark,w:6},{t:'fill',c:C.cyan,w:4},{t:'stroke',c:C.cyan,w:4},{t:'fill',c:C.white,w:1}] },
+  { name:'VIOLET HAZE', px:20, glow:10, shape:'sq',
+    L:[{t:'fill',c:C.deep,w:8},{t:'stroke',c:C.violet,w:5},{t:'fill',c:C.violet,w:2},{t:'fill',c:C.pink,w:1}] },
+  { name:'AMBER WARNING', px:18, glow:8, shape:'sq',
+    L:[{t:'fill',c:C.dark,w:8},{t:'stroke',c:C.amber,w:4},{t:'fill',c:C.amber,w:2},{t:'fill',c:C.blood,w:1}] },
+  { name:'TERMINAL GREEN', px:14, glow:8, shape:'sq',
+    L:[{t:'fill',c:C.black,w:10},{t:'stroke',c:C.lime,w:4},{t:'fill',c:C.lime,w:1}] },
+  { name:'STATIC NOISE', px:7, glow:0, shape:'sq',
+    L:[{t:'fill',c:C.black,w:6},{t:'fill',c:C.white,w:3},{t:'fill',c:C.cyan,w:2},{t:'fill',c:C.pink,w:2}] },
+  { name:'GHOST / BARELY THERE', px:24, glow:10, shape:'frame',
+    L:[{t:'fill',c:C.dark,w:12},{t:'stroke',c:C.cyan,w:2},{t:'stroke',c:C.pink,w:2}] },
+];
+let blkStyle = Math.min(BLK_STYLES.length - 1, Math.max(0, parseInt(localStorage.getItem('blkStyle') || '0', 10) || 0));
+// Add one tile's shape to the CURRENT path. Stroked shapes sit on the half-pixel so the line stays crisp.
+function blkShape(ctx, shape, x, y, s, stroked) {
+  const o = stroked ? 0.5 : 0;
+  switch (shape) {
+    case 'inset': ctx.rect(x + s * .18 + o, y + s * .18 + o, s * .64, s * .64); break;
+    case 'dot':   ctx.rect(x + s * .30 + o, y + s * .30 + o, s * .40, s * .40); break;
+    case 'bar':   ctx.rect(x + o, y + s * .28 + o, s - 1, s * .44); break;
+    case 'vbar':  ctx.rect(x + s * .28 + o, y + o, s * .44, s - 1); break;
+    case 'frame': ctx.rect(x + 1.5, y + 1.5, s - 3, s - 3); break;
+    case 'round': if (ctx.roundRect) ctx.roundRect(x + o, y + o, s - 1, s - 1, s * .28);
+                  else ctx.rect(x + o, y + o, s - 1, s - 1); break;
+    default:      ctx.rect(x + o, y + o, s - 1, s - 1);        // 'sq'  (-1 leaves a dark seam between tiles)
+  }
+}
+// expand a style's weighted layers into a pick-table, so tile -> layer is a single array lookup
+function blkMix(st) {
+  const m = [];
+  st.L.forEach((l, i) => { for (let k = 0; k < l.w; k++) m.push(i); });
+  return m;
+}
 function cockpitGlitchIn() {
   blkHideDash = true;
   // Wait one frame: with the art withheld, that frame still runs the cockpit's geometry, so dashTopY comes
   // back honest and we can size the tile field to the REAL interior instead of guessing at it.
   requestAnimationFrame(() => {
+    const st = BLK_STYLES[blkStyle], PX = st.px, MIX = blkMix(st);
     const w = window.innerWidth, h = window.innerHeight;
     const y0 = Math.max(0, Math.min(h - 8, dashTopY > 0 ? dashTopY : h * 0.55));   // top of the visible interior
     blkCv.width = w; blkCv.height = h; blkCv.style.display = 'block';
-    const cols = Math.ceil(w / BLK_PX), rows = Math.ceil((h - y0) / BLK_PX), n = cols * rows;
+    const cols = Math.ceil(w / PX), rows = Math.ceil((h - y0) / PX), n = cols * rows;
     // two INDEPENDENT shuffles: tiles arrive in one random order and leave in another, so the dissolve
     // doesn't simply play backwards on the way out.
     const shuffle = () => { const a = new Int32Array(n); for (let i = 0; i < n; i++) a[i] = i;
       for (let i = n - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0, t = a[i]; a[i] = a[j]; a[j] = t; } return a; };
     const inOrd = shuffle(), outOrd = shuffle();
-    const sty = new Uint8Array(n);
-    for (let i = 0; i < n; i++) sty[i] = BLK_MIX[(Math.random() * BLK_MIX.length) | 0];
+    const lay = new Uint8Array(n);                           // which LAYER of the style each tile belongs to
+    for (let i = 0; i < n; i++) lay[i] = MIX[(Math.random() * MIX.length) | 0];
     const t0 = performance.now();
     (function frame() {
       const t = performance.now() - t0;
@@ -6587,28 +6650,26 @@ function cockpitGlitchIn() {
       // Once the interior is fully buried, switch the dash art on BEHIND the blocks, so it is revealed by
       // them rather than popping in.
       if (blkHideDash && t >= BLK_IN) blkHideDash = false;
-      for (let k = 0; k < 30; k++) {                         // glitch shimmer: a few tiles re-roll each frame
-        const c = (Math.random() * n) | 0;
-        sty[c] = BLK_MIX[(Math.random() * BLK_MIX.length) | 0];
-      }
+      for (let k = 0; k < 30; k++) lay[(Math.random() * n) | 0] = MIX[(Math.random() * MIX.length) | 0];   // shimmer
       blkCtx.clearRect(0, 0, w, h);
-      // Batch by style: every tile of a style goes into ONE path and gets ONE fill()/stroke(). shadowBlur is
-      // charged PER DRAW CALL, so glowing each tile separately would be ~600 blur passes a frame; this is 6.
-      // (Same reason the arcade floor batches its grid columns.)
-      const X = c => (c % cols) * BLK_PX, Y = c => y0 + ((c / cols) | 0) * BLK_PX, S = BLK_PX - 1;   // -1 = dark seam
-      const path = want => { blkCtx.beginPath();
-        for (let i = 0; i < live; i++) { const c = ord[i]; if (sty[c] === want) blkCtx.rect(X(c), Y(c), S, S); } };
-      blkCtx.shadowBlur = 0;
-      path(0); blkCtx.fillStyle = BLK_DARK; blkCtx.fill();                     // dark body tiles
+      // ONE path + ONE draw call per layer, whatever the style. shadowBlur is charged per DRAW CALL, so
+      // glowing tiles individually would be ~600 blur passes a frame; this is at most a handful.
       blkCtx.lineWidth = 1;
-      blkCtx.shadowBlur = 6;
-      blkCtx.shadowColor = BLK_CYAN; blkCtx.strokeStyle = BLK_CYAN;
-      path(1); blkCtx.fillStyle = BLK_DARK; blkCtx.fill(); blkCtx.stroke();    // dark tile, lit cyan edge
-      blkCtx.shadowColor = BLK_PINK; blkCtx.strokeStyle = BLK_PINK;
-      path(2); blkCtx.fillStyle = BLK_DARK; blkCtx.fill(); blkCtx.stroke();    // dark tile, lit pink edge
-      blkCtx.shadowColor = BLK_CYAN; path(3); blkCtx.fillStyle = BLK_CYAN; blkCtx.fill();   // solid neon, sparse
-      blkCtx.shadowColor = BLK_PINK; path(4); blkCtx.fillStyle = BLK_PINK; blkCtx.fill();
-      blkCtx.shadowColor = '#ffffff'; path(5); blkCtx.fillStyle = '#ffffff'; blkCtx.fill();  // hot pixel
+      st.L.forEach((L, li) => {
+        const stroked = L.t === 'stroke';
+        blkCtx.beginPath();
+        let any = false;
+        for (let i = 0; i < live; i++) {
+          const c = ord[i];
+          if (lay[c] !== li) continue;
+          any = true;
+          blkShape(blkCtx, st.shape, (c % cols) * PX, y0 + ((c / cols) | 0) * PX, PX, stroked);
+        }
+        if (!any) return;
+        blkCtx.shadowBlur = st.glow; blkCtx.shadowColor = L.c;
+        if (stroked) { blkCtx.fillStyle = C.dark; blkCtx.fill(); blkCtx.strokeStyle = L.c; blkCtx.stroke(); }
+        else         { blkCtx.fillStyle = L.c; blkCtx.fill(); }
+      });
       blkCtx.shadowBlur = 0;
       if (t >= BLK_IN + BLK_HOLD + BLK_OUT) { blkCtx.clearRect(0, 0, w, h); blkCv.style.display = 'none'; blkHideDash = false; return; }
       requestAnimationFrame(frame);
@@ -6618,6 +6679,34 @@ function cockpitGlitchIn() {
 document.getElementById('startBtn').addEventListener('click', () => beginRun('cruise'));
 // ARCADE from the MENU: start the world instantly (it's the same scene), then glitch the interior in.
 // A crash restart calls beginRun() with no mode and skips this — you're already in the car there.
+// ---- STYLE PICKER: press I in arcade to cycle the 20 block styles ----
+// Replays the glitch-in on the spot with the new style, so you can flick through them and see each one
+// rather than having to bounce out to the menu and back. The pick is remembered across reloads.
+// Shift+I steps backwards.
+function blkToast(msg) {
+  let el = document.getElementById('blkToast');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'blkToast';
+    el.style.cssText = 'position:fixed;left:50%;top:16%;transform:translateX(-50%);z-index:60;' +
+      'font-family:Aldrich,monospace;font-size:15px;letter-spacing:3px;color:#41edf1;pointer-events:none;' +
+      'text-shadow:0 0 10px #41edf1,0 0 26px #0a7f8a;background:rgba(6,2,16,.72);padding:9px 18px;' +
+      'border:1px solid rgba(65,237,241,.5);border-radius:4px;white-space:nowrap;transition:opacity .3s';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg; el.style.opacity = '1';
+  clearTimeout(blkToast._t);
+  blkToast._t = setTimeout(() => { el.style.opacity = '0'; }, 1500);
+}
+window.addEventListener('keydown', e => {
+  if (e.key !== 'i' && e.key !== 'I') return;
+  if (gameMode !== 'arcade' || !document.body.classList.contains('arcadeScene')) return;
+  if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;   // don't hijack typing in the dev panel
+  const n = BLK_STYLES.length;
+  blkStyle = (blkStyle + (e.shiftKey ? n - 1 : 1)) % n;
+  localStorage.setItem('blkStyle', String(blkStyle));
+  blkToast(`BLOCKS  ${blkStyle + 1}/${n}  ·  ${BLK_STYLES[blkStyle].name}`);
+  cockpitGlitchIn();                                          // replay it immediately with the new style
+});
 const CITY_IN_MS = 600;                                      // must outlast the cityIn / menuOut CSS animations
 document.getElementById('arcadeBtn').addEventListener('click', () => {
   beginRun('arcade');
