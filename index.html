@@ -163,9 +163,19 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
      Zoom 180% + position 71.6% puts the art's horizon exactly on the game's, and the city renders 1.8x
      bigger. The number matters: get it wrong and the art's OWN grid floor shows above the game's floor as a
      double horizon. (Landscape needs none of this — its horizon already lines up.) */
+  /* PORTRAIT USES THE LANDSCAPE ART. The portrait artwork is a different painting: its skyline is fainter,
+     paler and further away, so rotating the phone changed the city itself — no amount of zooming or
+     re-aligning the portrait image could make it match, because the pixels are different. Cropping the
+     LANDSCAPE art to a portrait window means both orientations show the SAME city, in the same bold pink,
+     at the same distance.
+     The numbers: that art's horizon (top of the grid) sits at 53.5% of its height. Wanting the horizon on
+     the game's horizon (H/2) AND the image top flush at y=0 gives  Z = 0.5 / 0.535 = 93.4%, positioned at
+     the top — and that is independent of screen height, so it holds on every phone. On a 15 Pro it renders
+     1426x796: horizon lands on 426 = the game's horizon exactly, and the city is 1.5x bigger than it is in
+     landscape, so it reads close instead of distant. */
   body.arcadeScene #overlay .mBg {
-    background-image: url("assets/menu_bg_portrait_arcade.png");
-    background-size: auto 180%; background-position: center 71.6%;
+    background-image: url("assets/menu_bg_land_arcade.png");
+    background-size: auto 93.4%; background-position: center top;
   }
   @media (orientation: landscape) {
     body.arcadeScene #overlay .mBg {
