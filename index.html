@@ -1128,10 +1128,10 @@ function buildRoad() {
   // into the corner (the stray tree that showed up alongside the lights).
   // Gate it at the SOURCE — with `cross`/`crossEdge` never set, every downstream consumer (the cross-street
   // fill, drawCrossroad()) simply never fires, so none of them needs its own arcade special-case.
-  const noCross = (gameMode === 'arcade');
+  const arcade = (gameMode === 'arcade');
   for (let i = 0; i < segments.length; i++) {
     const m = i % CROSS_EVERY;
-    const inCross = !noCross && m >= (CROSS_EVERY - CROSS_SPAN);   // gap at each ~1000-score boundary (starts with buildings)
+    const inCross = !arcade && m >= (CROSS_EVERY - CROSS_SPAN);   // gap at each ~1000-score boundary (starts with buildings)
     segments[i].cross = inCross;                          // flag for the renderer (asphalt cross-street)
     // crosswalk at the NEAR edge (kind 2), the overhead signal arm on the FAR side of the intersection (kind 1)
     segments[i].crossEdge = inCross && (m === CROSS_EVERY - CROSS_SPAN + 3 ? 2 : m === CROSS_EVERY - 4 ? 1 : 0);
@@ -1152,9 +1152,15 @@ function buildRoad() {
       continue;
     }
     if (i % PALM_EVERY === 0) {
-      for (const side of [-1, 1]) {
-        const h = 1.1 + rand01(i, side) * 0.45;         // taller palms
-        segments[i].scenery.push({ type: 'palm', side, off: PALM_OFF, h });
+      // ARCADE: the avenue was too dense. Drop the MIDDLE palm of every three (keep #0 and #2, skip #1),
+      // so they read as pairs with a clear gap between them instead of a solid wall of trunks.
+      // The lap has 84 palm slots, a multiple of 3, so the pattern closes cleanly where the road loops.
+      const thinned = arcade && ((i / PALM_EVERY) % 3 === 1);
+      if (!thinned) {
+        for (const side of [-1, 1]) {
+          const h = 1.1 + rand01(i, side) * 0.45;         // taller palms
+          segments[i].scenery.push({ type: 'palm', side, off: PALM_OFF, h });
+        }
       }
     }
     if (i % 96 === 40) segments[i].scenery.push({ type:'cypress', side: (i%192<96?-1:1), off: 2.3, h: 2.3 });
