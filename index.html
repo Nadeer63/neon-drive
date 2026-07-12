@@ -46,60 +46,16 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   body.arcadeScene #overlay .mGround,
   body.arcadeScene #overlay .mHorizon,
   body.arcadeScene #overlay .mPalm { display: none !important; }
-  /* ===== MENU -> ARCADE transition =====
-     The menu backdrop (skyline, sun, palms) IS the arcade backdrop — same art, already on screen — so the
-     WORLD doesn't need to transition at all. Only the car has to arrive. Sell that: a CRT tear + chroma
-     flash over the whole frame while the cockpit slams up from below (see introT in drawPlayerCar), then
-     the HUD powers on once the dash has landed. Pure CSS on a single overlay, so it costs nothing to run
-     and nothing when idle (opacity 0, no animation). */
-  #introFx { position: fixed; inset: 0; z-index: 6; pointer-events: none; opacity: 0; }
-  body.arcadeIntro #introFx {
-    background:
-      repeating-linear-gradient(0deg, rgba(0,0,0,.42) 0 2px, rgba(0,0,0,0) 2px 5px),
-      linear-gradient(96deg, rgba(255,43,214,.55), rgba(0,240,255,.55));
-    mix-blend-mode: screen;
-    animation: introGlitch 1.3s steps(2, end) 1 forwards;
-  }
-  @keyframes introGlitch {
-    0%   { opacity: 1;   background-color: #fff; transform: translate3d(0,0,0) scaleY(1.6); }   /* CRT power-on: white line blooms open */
-    4%   { opacity: 1;   background-color: rgba(255,255,255,.35); transform: translate3d(-22px,0,0) scaleY(1.05); }
-    10%  { opacity: .9;  transform: translate3d(24px,-6px,0) scaleY(.97); }
-    18%  { opacity: .95; transform: translate3d(-18px,7px,0) scaleY(1.04); }
-    28%  { opacity: .75; transform: translate3d(14px,-3px,0); }
-    40%  { opacity: .8;  transform: translate3d(-11px,4px,0); }
-    54%  { opacity: .5;  transform: translate3d(8px,0,0); }
-    70%  { opacity: .32; transform: translate3d(-5px,2px,0); }
-    86%  { opacity: .15; transform: translate3d(3px,0,0); }
-    100% { opacity: 0;   transform: none; }
-  }
-  /* ---- CAMERA PUNCH ----
-     #game is TRANSPARENT in arcade — the skyline/sun behind it is the DOM #overlay. So the warp has to be
-     applied to BOTH, identically, or the neon floor slides off the buildings it's supposed to sit under.
-     Same keyframes on both keeps them welded together.
-     TRANSFORM ONLY — no filter(). blur()/brightness()/saturate() on these three full-screen layers forced a
-     re-rasterisation of each one every frame (and #game already repaints every frame anyway); measured, it
-     stalled the page for ~600ms mid-transition, so the "bigger" effect actually made it judder. transform
-     is compositor-only and free. All the colour/chroma work lives on #introFx, one small blended layer. */
-  body.arcadeIntro #game,
-  body.arcadeIntro #overlay,
-  body.arcadeIntro #hudcv {
-    animation: introCam 1.3s cubic-bezier(.16,.85,.2,1) 1 forwards;
-    transform-origin: 50% 62%; will-change: transform;
-  }
-  @keyframes introCam {
-    0%   { transform: scale(1.30) translate3d(0,22px,0); }
-    5%   { transform: scale(1.27) translate3d(-24px,-10px,0) skewX(2deg); }
-    11%  { transform: scale(1.24) translate3d(22px,12px,0) skewX(-3.5deg); }
-    19%  { transform: scale(1.20) translate3d(-16px,-14px,0) skewX(2.5deg); }
-    29%  { transform: scale(1.15) translate3d(12px,7px,0) skewX(-1.5deg); }
-    42%  { transform: scale(1.10) translate3d(-8px,-5px,0) skewX(1deg); }
-    58%  { transform: scale(1.06) translate3d(5px,3px,0); }
-    76%  { transform: scale(1.03) translate3d(-3px,0,0); }
-    100% { transform: none; }
-  }
-  /* HUD powers on only after the dash has landed */
-  body.arcadeIntro #hud { animation: introHud 1.3s ease-out 1 forwards; }
-  @keyframes introHud { 0%, 62% { opacity: 0; } 80% { opacity: .4; } 88% { opacity: .15; } 100% { opacity: 1; } }
+  /* ===== MENU -> ARCADE transition: DIGITAL BLOCK DISSOLVE =====
+     The screen shatters into small neon tiles that fill it up, the world is swapped underneath while it's
+     hidden, then the tiles clear away to reveal the arcade. Drawn on its own canvas (a few hundred
+     fillRects a frame) rather than in CSS: a tile dissolve needs per-tile random order and per-tile colour
+     re-rolls, which keyframes can't express. Idle cost is zero — the canvas is display:none until used. */
+  /* z-index 50: the dissolve has to cover EVERYTHING it is swapping between. #overlay (the menu art, which
+     is also the arcade backdrop) sits at 10, #topNav 20, #devPanel 30, #fontPicker 45 — an earlier z of 8
+     put the blocks UNDER the backdrop, so they painted correctly and were never seen. Stays under
+     #loadCover (60), which must always win. */
+  #introBlocks { position: fixed; inset: 0; z-index: 50; pointer-events: none; display: none; }
   #hud {
     position: fixed; top: 0; left: 0; right: 0; padding: 18px 22px;
     display: flex; justify-content: space-between; align-items: flex-start;
@@ -723,7 +679,7 @@ window.__B="1783871663";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <div class="lcTrack"><div id="loadBar"></div></div>
 </div></div>
 <audio id="bgMusic" loop></audio>
-<div id="hud" class="hidden"></div><div id="introFx" aria-hidden="true"></div><button id="muteBtn" title="Change track">♪</button>
+<div id="hud" class="hidden"></div><canvas id="introBlocks" aria-hidden="true"></canvas><button id="muteBtn" title="Change track">♪</button>
 <button id="settingsBtn" title="Settings">⚙</button>
 <div id="radio">
   <span class="rlab">📻</span>
@@ -1444,13 +1400,6 @@ let trafficClear = 0;                  // >0 = road is cleared (no traffic drawn
 let trafficFadeIn = 0;                 // >0 = traffic is fading back in after a cleared-road breather (so it doesn't pop)
 let trafficThin = 0;                   // >0 = 5k milestone: most cars fade OUT (keep a few) then fade back in — "a bit of cars"
 let boostMph = 0;                      // X/Square: each press adds +15 mph (stacks toward 300), fades over time
-// ARCADE INTRO: menu -> arcade. The backdrop is the SAME art in both, so the world needs no transition —
-// only the car arrives. introAt = when ARCADE was pressed; introP() is 0..1 over INTRO_MS, and 1 (done)
-// whenever we're not in an intro, so every consumer can just read it without a mode check.
-const INTRO_MS = 1300;                 // must match the introCam / introGlitch / introHud CSS durations
-let introAt = 0;
-let introTearX = 0;                    // horizontal glitch tear on the cockpit while it boots in
-const introP = () => (introAt ? Math.min(1, (performance.now() - introAt) / INTRO_MS) : 1);
 window.__freeze = function(v){ dbgFreeze = v !== false; };
 window.__city = function(i){
   i = ((i % CITIES.length) + CITIES.length) % CITIES.length;
@@ -5078,26 +5027,10 @@ function drawPlayerCar(){
       const liftY = land ? 0 : H * 0.13;                         // portrait: raise the dashboard well up off the bottom edge (black floor fills below)
       topY = H - dashH;
       { const f = (dashH + ext) / dashH; dashW *= f; dashH *= f; topY = H - dashH + ext - liftY; }
-      // ---- ARCADE BOOT-IN: the cockpit arrives ----
-      // Drive it off topY/dashLeft rather than a canvas transform, because EVERYTHING in the cockpit
-      // (dashTopY, the radio screen, the wheel, the arcade colour grade) is mapped from those two — so the
-      // whole interior travels together for free, and dashTopY stays honest, which matters because the
-      // grid's horizon fade is measured against it.
-      const _ip = introP();
-      if (_ip < 1) {
-        // easeOutBack: rushes up, OVERSHOOTS past its resting place, then drops back into it — the dash
-        // lands with weight instead of gliding to a stop.
-        const c1 = 1.85, c3 = c1 + 1, u = _ip - 1;
-        const e = 1 + c3 * u * u * u + c1 * u * u;
-        topY += (1 - e) * (dashH + ext) * 1.15;                  // starts fully below the frame
-        const tear = Math.max(0, 1 - _ip / 0.88);                // tearing runs almost to the landing
-        if (Math.random() < 0.6 * tear) introTearX = (Math.random() * 2 - 1) * 64 * tear;
-        else introTearX *= 0.6;                                  // decay between tears so it doesn't strobe
-      } else introTearX = 0;
       // Where the cockpit VISIBLY starts (skipping the transparent windscreen cut-out) — arcade grades
       // only from here down, so the road seen through the cut-out is left alone. See render().
       dashTopY = topY + dashOpaqueFrac(photo, s0, sBandH) * dashH;
-      dashLeft = (W - dashW) / 2 + introTearX;                   // horizontal tear while the cockpit boots in (0 otherwise)
+      dashLeft = (W - dashW) / 2;
       if (dashLeft > 1) {                                         // wide screen: extend the dashboard to the screen edges by stretching a THIN outer column
         const col = Math.max(2, photo.naturalWidth * 0.025);      // (the very edge is dark frame; the cut-out top stays transparent so the road still shows through)
         ctx.drawImage(photo, 0, s0, col, sBandH, 0, topY, dashLeft + 1, dashH);                                            // left
@@ -6568,9 +6501,6 @@ function beginRun(mode) {
   if (mode === 'cruise' || mode === 'arcade') gameMode = mode;   // explicit start sets mode; restarts keep the current mode
   if (_scoreCountRAF) { cancelAnimationFrame(_scoreCountRAF); _scoreCountRAF = null; }   // stop the crash score count-up (+ its ticking sound)
   const _arc = (gameMode === 'arcade');
-  // Play the boot-in only when ARCADE is pressed FROM THE MENU (mode is passed). A restart after a crash
-  // passes no mode, and you're already sitting in the car there — replaying the intro would be a tic.
-  const _intro = (_arc && mode === 'arcade');
   document.body.classList.toggle('arcadeScene', _arc);                       // arcade drives over the real CSS menu scene
   // arcade shows the REAL menu scene: the .mBg image (grid/sun/buildings) + its placed trees (#mTrees) — everything
   // exactly like the main page; only hide the leftover old CSS scene bits (already hidden globally anyway).
@@ -6580,17 +6510,56 @@ function beginRun(mode) {
   document.getElementById('hud').classList.remove('hidden');
   freeGarageFrames();                                        // gameplay only needs the ~20 traffic frames -> free garage's 360
   reset();
-  // Start the intro clock AFTER reset(): buildRoad() takes ~130ms, and starting it before meant the first
-  // frame you actually saw was already 15% in — the cockpit had climbed a fifth of the way before it was
-  // ever painted, so the boot-in lost its opening beat.
-  introAt = _intro ? performance.now() : 0;
-  introTearX = 0;
-  document.body.classList.toggle('arcadeIntro', _intro);
-  if (_intro) setTimeout(() => document.body.classList.remove('arcadeIntro'), INTRO_MS);
   if (!musicStarted) { startMusic(); musicStarted = true; }   // start once; keep whatever you switched to across deaths
 }
+
+// ===== MENU -> ARCADE: DIGITAL BLOCK DISSOLVE =====
+// The screen shatters into small neon tiles that fill it up; the world is swapped UNDERNEATH while it's
+// fully hidden; then the tiles clear away to reveal the arcade. Because the swap happens behind a solid
+// wall of blocks, the cut itself is never seen — no fade, no flash needed.
+// Canvas, not CSS: a tile dissolve needs a random per-tile ORDER and per-tile colour re-rolls each frame,
+// which keyframes can't express. Cost is a few hundred fillRects a frame for ~1s, and zero when idle.
+const blkCv = document.getElementById('introBlocks');
+const blkCtx = blkCv.getContext('2d');
+const BLK_PX = 22;                                           // tile size (px) — small, so it reads as pixels
+const BLK_IN = 380, BLK_HOLD = 90, BLK_OUT = 480;            // fill up / stay solid / clear away  (~950ms)
+const BLK_PAL = ['#ff2bd6', '#00f0ff', '#b026ff', '#ff2bd6', '#00f0ff', '#150626', '#150626', '#ffffff'];
+function blockDissolve(swap) {
+  const w = window.innerWidth, h = window.innerHeight;
+  blkCv.width = w; blkCv.height = h; blkCv.style.display = 'block';
+  const cols = Math.ceil(w / BLK_PX), rows = Math.ceil(h / BLK_PX), n = cols * rows;
+  // two INDEPENDENT shuffles: tiles fill in one random order and clear in a different one, so the dissolve
+  // doesn't just play backwards on the way out.
+  const shuffle = () => { const a = new Int32Array(n); for (let i = 0; i < n; i++) a[i] = i;
+    for (let i = n - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0, t = a[i]; a[i] = a[j]; a[j] = t; } return a; };
+  const inOrd = shuffle(), outOrd = shuffle();
+  const hue = new Uint8Array(n);
+  for (let i = 0; i < n; i++) hue[i] = (Math.random() * BLK_PAL.length) | 0;
+  let swapped = false;
+  const t0 = performance.now();
+  (function frame() {
+    const t = performance.now() - t0;
+    let ord = inOrd, live;                                   // `live` = how many tiles are currently painted
+    if (t < BLK_IN)                    live = Math.round(n * (t / BLK_IN));
+    else if (t < BLK_IN + BLK_HOLD)    live = n;
+    else { ord = outOrd; live = Math.max(0, Math.round(n * (1 - (t - BLK_IN - BLK_HOLD) / BLK_OUT))); }
+    // Swap the world at the moment the screen is fully covered — the cut happens behind the blocks.
+    if (!swapped && t >= BLK_IN) { swapped = true; swap(); }
+    for (let k = 0; k < 50; k++) hue[(Math.random() * n) | 0] = (Math.random() * BLK_PAL.length) | 0;   // glitch shimmer
+    blkCtx.clearRect(0, 0, w, h);
+    for (let i = 0; i < live; i++) {
+      const c = ord[i];
+      blkCtx.fillStyle = BLK_PAL[hue[c]];
+      blkCtx.fillRect((c % cols) * BLK_PX, ((c / cols) | 0) * BLK_PX, BLK_PX - 1, BLK_PX - 1);   // -1 = thin dark seam between tiles
+    }
+    if (t >= BLK_IN + BLK_HOLD + BLK_OUT) { blkCtx.clearRect(0, 0, w, h); blkCv.style.display = 'none'; return; }
+    requestAnimationFrame(frame);
+  })();
+}
 document.getElementById('startBtn').addEventListener('click', () => beginRun('cruise'));
-document.getElementById('arcadeBtn').addEventListener('click', () => beginRun('arcade'));
+// ARCADE from the MENU dissolves in. A crash restart calls beginRun() with no mode and skips it — you're
+// already sitting in the car there, so replaying the dissolve would just be a tic.
+document.getElementById('arcadeBtn').addEventListener('click', () => blockDissolve(() => beginRun('arcade')));
 document.getElementById('restartBtn').addEventListener('click', beginRun);   // no arg -> keeps current mode
 function updateArcadeBest(){ var el=document.getElementById('arcadeBest'); if(el) el.innerHTML = 'BEST&nbsp;&nbsp;' + arcadeBest.toLocaleString(); }
 updateArcadeBest();
