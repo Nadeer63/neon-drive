@@ -1116,7 +1116,11 @@ function buildRoad() {
   // --- organized roadside: a regular row of palms, a back row of buildings ---
   const PALM_OFF  = (gameMode === 'arcade') ? 1.32 : 1.25;   // arcade: frame the road, don't crowd it
   const BLD_OFF   = 1.95;   // buildings set well past the curb — fully clear of the road, car can't reach them
-  const PALM_EVERY = (gameMode === 'arcade') ? 24 : 20;   // arcade: sparse palm avenue (user prefers fewer trees)
+  // ARCADE: sparse palm avenue (user prefers fewer trees). 40 divides the 2000-segment lap exactly, so the
+  // palms are EVENLY spaced with no bunching where the road loops back on itself — which a spacing that
+  // doesn't divide the lap would give you once per lap. 50 palms; the previous "skip the middle of every
+  // three" gave 56 but in a lopsided 48/24 rhythm, which is what read as uneven.
+  const PALM_EVERY = (gameMode === 'arcade') ? 40 : 20;
   const BLD_EVERY  = 3;     // denser row so the block reads as a continuous wall (no gaps between buildings at an angle)
   // a cross street every 1000 score: score == 0.01*position, so 1000 score == 500 segments.
   // inside the gap we drop the palms+buildings so it reads as an open intersection, then the block resumes.
@@ -1152,15 +1156,9 @@ function buildRoad() {
       continue;
     }
     if (i % PALM_EVERY === 0) {
-      // ARCADE: the avenue was too dense. Drop the MIDDLE palm of every three (keep #0 and #2, skip #1),
-      // so they read as pairs with a clear gap between them instead of a solid wall of trunks.
-      // The lap has 84 palm slots, a multiple of 3, so the pattern closes cleanly where the road loops.
-      const thinned = arcade && ((i / PALM_EVERY) % 3 === 1);
-      if (!thinned) {
-        for (const side of [-1, 1]) {
-          const h = 1.1 + rand01(i, side) * 0.45;         // taller palms
-          segments[i].scenery.push({ type: 'palm', side, off: PALM_OFF, h });
-        }
+      for (const side of [-1, 1]) {
+        const h = 1.1 + rand01(i, side) * 0.45;         // taller palms
+        segments[i].scenery.push({ type: 'palm', side, off: PALM_OFF, h });
       }
     }
     if (i % 96 === 40) segments[i].scenery.push({ type:'cypress', side: (i%192<96?-1:1), off: 2.3, h: 2.3 });
@@ -3725,14 +3723,13 @@ function drawScene(sc, side, worldX, segPt, fog, camY, camZ, clipY, fade, city){
     }
   }
   else if (sc.type === 'palm') {
-    const _isArc = (gameMode === 'arcade' && arcPalm.complete && arcPalm.naturalWidth);
-    const palmImg = _isArc ? arcPalm : scPalm;
-    if (palmImg && palmImg.complete && palmImg.naturalWidth) {
-      const ph = unit * sc.h * (_isArc ? 1.42 : 1.9), pw = ph * (palmImg.naturalWidth / palmImg.naturalHeight);   // arcade: smaller palms = clean avenue, not a wall
+    const _isArc = (gameMode === 'arcade' && arcPalmPink);
+    // arcade blits the PRE-BAKED pink palm (see ARC_PALM_FILTER) — no per-draw ctx.filter
+    const palmImg = _isArc ? arcPalmPink : scPalm;
+    if (palmImg && (_isArc || (palmImg.complete && palmImg.naturalWidth))) {
+      const ph = unit * sc.h * (_isArc ? 1.42 : 1.9), pw = ph * (palmImg.width / palmImg.height);   // arcade: smaller palms = clean avenue, not a wall
       ctx.imageSmoothingEnabled = _isArc;   // smooth the main-page palm; keep the pixel sprite crisp
-      if (_isArc) ctx.filter = 'hue-rotate(138deg) saturate(0.78) brightness(1.26)';   // main-page soft-pink
       ctx.drawImage(palmImg, sp.sx - pw/2, sp.sy - ph, pw, ph);
-      if (_isArc) ctx.filter = 'none';
       ctx.imageSmoothingEnabled = true;
     } else drawPalm(sp.sx, sp.sy, unit * sc.h, fog);
   }
@@ -3909,6 +3906,22 @@ const scPalm = new Image(); scPalm.src = 'assets/sc_palm.png';        // neon pa
 // palm_solid). palm_neon.png is palm_solid with that fill stripped out and the halo rebuilt from the tubes
 // themselves — neon only, fully transparent between the rungs. Regenerate: tools/make_palm_neon.py
 const arcPalm = new Image(); arcPalm.src = 'assets/palm_neon.png';   // soft-pink neon palm, used in ARCADE
+// The arcade palm is CYAN art recoloured to pink. Doing that with ctx.filter on every drawImage is the
+// single most expensive thing in the arcade frame: a canvas filter forces its own offscreen rasterisation
+// pass PER DRAW, and the cost scales with the palm's on-screen area — so a palm sweeping past the camera
+// (when it's biggest) is exactly when it costs the most. Measured: 1.0-1.6ms per filtered palm vs
+// 0.5-0.7ms plain, and the frame draws ~11 palms, i.e. the filter alone could eat the whole 16.7ms budget.
+// It never showed up in a CPU profile because the work is GPU rasterisation, off the JS thread.
+// Bake the recolour ONCE into an offscreen canvas at load; the hot path then does a plain blit.
+const ARC_PALM_FILTER = 'hue-rotate(138deg) saturate(0.78) brightness(1.26)';   // main-page soft-pink
+let arcPalmPink = null;
+arcPalm.onload = () => {
+  const c = document.createElement('canvas');
+  c.width = arcPalm.naturalWidth; c.height = arcPalm.naturalHeight;
+  const g = c.getContext('2d');
+  g.filter = ARC_PALM_FILTER; g.drawImage(arcPalm, 0, 0); g.filter = 'none';
+  arcPalmPink = c;
+};
 const scFence = new Image(); scFence.src = 'assets/sc_fence.png';     // generated SOLID steel guardrail (matte, no neon), mapped onto the causeway edges per-segment
 const bldImgs = []; for (let i = 0; i < 60; i++){ const im = new Image(); im.src = 'assets/bld_' + i + '.png'; bldImgs.push(im); }   // 60 distinct Miami Art-Deco hotels (3/4 view, baked 3D)
 const clubImgs = []; for (let i = 0; i < 16; i++){ const im = new Image(); im.src = 'assets/club_' + i + '.png'; clubImgs.push(im); }   // neon nightclub/hotel buildings for the intersection corners
