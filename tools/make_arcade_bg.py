@@ -35,6 +35,11 @@ JOBS = [
     ('assets/menu_bg_portrait_back2.png', 'assets/menu_bg_portrait_arcade.png', 0.500, 0.084, 0.55),
 ]
 
+# Horizon of the landscape art (top of its painted grid), as a fraction of image height. Everything below
+# this is erased — see the note in build(). Same value the CSS uses to place the backdrop.
+HORIZON_F = 0.535
+FLOOR_RGB = (13, 3, 32)      # the arcade floor's own near-black violet, so the join is invisible
+
 
 def build(src_path, dst_path, cx_frac, d_frac, squeeze):
     from math import sin, pi
@@ -93,6 +98,26 @@ def build(src_path, dst_path, cx_frac, d_frac, squeeze):
                 int(a[1] + (b[1] - a[1]) * f),
                 int(a[2] + (b[2] - a[2]) * f),
                 int(a[3] + (b[3] - a[3]) * f),
+            )
+    # ---- ERASE THE PAINTED ROAD BELOW THE HORIZON ----
+    # The arcade canvas paints its OWN neon floor from the game's horizon down, so nothing in the art below
+    # the horizon is ever supposed to be seen. But the art's horizon and the game's can never be pixel-exact
+    # on every screen, and the moment the art sits even slightly low, its painted road and grid peek out
+    # above the real floor — you get TWO roads running to the same vanishing point.
+    # Deleting them from the art removes the failure mode entirely, instead of chasing alignment: below the
+    # horizon there is simply nothing left to show through. Fade over a short band so the horizon glow (which
+    # sells the skyline's base) survives and there's no hard cut.
+    hz = int(HORIZON_F * H)
+    FADE = max(6, int(H * 0.02))
+    for y in range(hz, H):
+        t = min(1.0, (y - hz) / FADE)              # 0 at the horizon -> 1 just below it
+        for x in range(W):
+            p = dst[x, y]
+            dst[x, y] = (
+                int(p[0] + (FLOOR_RGB[0] - p[0]) * t),
+                int(p[1] + (FLOOR_RGB[1] - p[1]) * t),
+                int(p[2] + (FLOOR_RGB[2] - p[2]) * t),
+                p[3],
             )
     out.save(dst_path)
     peak = max(abs(fwd[x] - x) for x in range(W))
