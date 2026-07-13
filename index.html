@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783910011";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783910357";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1020,9 +1020,12 @@ let W, H, PW, PH, phoneMode = false;   // phoneMode = touch device held in portr
 let FOV_MUL = 1;                   // stays 1 — the field of view is now fixed per orientation via CAM_DEPTH (locked, not adjustable)
 let CAM_MUL = 1;                   // camera-height multiplier; set per device in resize() (phone portrait sits lower)
 let simSpeedMul = 1;              // world time-scale (kept at 1 everywhere now — physics identical on all devices)
-let HZ_F = 0.265;                  // phone-portrait arcade: push the horizon this fraction of H DOWN the screen (see hzDrop)
-                                   // Tracks DASH_DROP_F: it leaves a 68px strip of ground above the dash — landscape, which reads correct, has 20px.
-let DASH_DROP_F = 0.085;           // phone: push the cockpit art this fraction of H BELOW the bottom edge (see drawPlayerCar)
+let HZ_F = 0;                      // phone-portrait arcade: push the horizon this fraction of H DOWN the screen (see hzDrop).
+                                   // With a landscape-sized cockpit (DASH_TOP_F) the dash already reaches up near H/2, so the
+                                   // ground strip is thin without moving the horizon at all — no drop needed.
+let DASH_TOP_F = 0.55;             // phone: the dashboard's leading edge, as a fraction of H (landscape sits at 0.55)
+let WHEEL_R_F  = 0.40;             // phone: wheel radius as a fraction of W  (scaled to the cockpit, not the old strip)
+let WHEEL_CY_F = 0.86;             // phone: wheel centre as a fraction of H — low enough that the bottom rim leaves the screen
 let CAM_DEPTH = 0.5;             // field-of-view depth; LOCKED per orientation in resize(): phone portrait = FOV 35, landscape/desktop = FOV 100 (max)
 let safeTop = 0;                 // top safe-area inset in CSS px (iPhone notch / Dynamic Island); pushes the top HUD down
 let _satProbe = null;
@@ -5141,23 +5144,32 @@ function drawPlayerCar(){
     const pimg = phoneMode && IN.phone && interiorImgs[IN.phone.img];   // portrait: use the dedicated full-width phone dashboard (whole interior visible)
     if (pimg && pimg.complete && pimg.naturalWidth) {
       const ph = IN.phone, band = ph.srcBot - ph.srcTop;
-      // DROP the cockpit past the bottom edge. Bottom-anchored, the whole wheel fits on screen with a dead
-      // strip of dashboard under it — it reads as a picture of a dashboard pasted along the bottom, not as a
-      // car you are sitting in. Landscape (which reads right) cuts the wheel off at the screen edge, so do
-      // the same here: push the art down until its lower rim is cropped and the dead strip is off-screen.
-      // The horizon (HZ_F) is sunk by the same amount, or the ground strip this exposes would put the
-      // camera back up where it was.
-      const dashH = W * (band * pimg.naturalHeight / pimg.naturalWidth), tY = H - dashH + H * DASH_DROP_F;  // natural aspect (round gauge, no stretch)
+      // ---- SITTING IN THE CAR, not looking at a photo of a dashboard ----
+      // The cockpit used to be bottom-anchored at its natural height: a 204px strip across the bottom 24% of
+      // a portrait phone, with the whole steering wheel floating inside it. Landscape — the view that reads
+      // right — gives the cockpit the bottom 45% and cuts the wheel off at the screen edge. Match that:
+      //   * the dash's leading edge sits at DASH_TOP_F of H (same fraction landscape uses),
+      //   * the art keeps its natural aspect (no squish: the gauge stays a circle),
+      //   * everything below the art is a SKIRT — its last source row stretched to the bottom edge. The art's
+      //     lower half is flat dash anyway, so this is indistinguishable from a taller dashboard and costs no
+      //     new asset. Scaling the image up instead would crop the gauge and the radio off the sides.
+      //   * the wheel is scaled to the cockpit (not to W) and dropped until its lower rim leaves the screen.
+      const dashH = W * (band * pimg.naturalHeight / pimg.naturalWidth), tY = H * DASH_TOP_F;   // natural aspect (round gauge, no stretch)
       // The phone dashboard path never set dashTopY, so it stayed 0 — and in arcade the colour grade is
       // clipped to `rect(0, dashTopY, W, H - dashTopY)` on the assumption that it only tints the COCKPIT.
       // At 0 that clip covered the whole screen, so the purple filter was washed straight over the sky, the
       // sun and the city: portrait looked hazy and desaturated while landscape (which does set it) was
       // vivid. Report where the interior actually starts.
       dashTopY = tY;
-      ctx.drawImage(pimg, 0, ph.srcTop*pimg.naturalHeight, pimg.naturalWidth, band*pimg.naturalHeight, 0, tY, W, dashH);
+      const nh = pimg.naturalHeight, nw = pimg.naturalWidth;
+      ctx.drawImage(pimg, 0, ph.srcTop*nh, nw, band*nh, 0, tY, W, dashH);
+      const skirtY = tY + dashH - 1;
+      if (skirtY < H) {   // stretch the art's last row down to the bottom edge — the lower dash, extended
+        ctx.drawImage(pimg, 0, (ph.srcBot - 0.004)*nh, nw, 0.004*nh, 0, skirtY, W, H - skirtY);
+      }
       // wheel first, so the flanking gauge + radio always sit on top at the edges
       const wimg = IN.wheelImg && interiorImgs[IN.wheelImg], keyed = wimg && keyedImage(wimg);
-      if (keyed) { const wr = ph.wheel.r*W, wcx = ph.wheel.x*W + sway, wcy = tY + ph.wheel.ry*dashH;
+      if (keyed) { const wr = WHEEL_R_F*W, wcx = ph.wheel.x*W + sway, wcy = H * WHEEL_CY_F;
         ctx.save(); ctx.translate(wcx, wcy); ctx.rotate(wheelAngle); ctx.drawImage(keyed, -wr, -wr, wr*2, wr*2); ctx.restore(); }
       // radio in the screen
       const s = ph.screen, scx = s.x*W, scw = s.w*W, scy = tY + s.ry*dashH, sch = s.rh*dashH;
