@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783907727";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783908078";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1068,18 +1068,20 @@ function resize() {
   const portrait = window.matchMedia ? window.matchMedia('(orientation: portrait)').matches : (H >= W);   // reliable across mobile rotations
   phoneMode = touch && portrait;
   touchLandscape = touch && !portrait;
-  // ONE camera on every device now. Portrait used to sit low (0.5) and look through a narrow FOV 35, so the
-  // neon floor and its cyan side-ground spread completely differently from landscape — which is what made
-  // the "blue sides" look wrong the moment you rotated the phone. Same height + same FOV = same scene,
-  // whichever way you hold it.
-  CAM_MUL = 1;
+  // PW is capped at W, and portrait is only ~393px wide against landscape's ~932 — so at the SAME field of
+  // view a portrait phone sees a narrow slice: the road is thin and the traffic is tiny, while the full
+  // camera height shows a lot of ground, which reads as "the camera is too high".
+  // The old fix (FOV 35, camera at half height) went too far the other way and made rotating the phone
+  // change the scene. FOV 68 + 0.8 height is the middle: cars and road come back up to size and the
+  // viewpoint drops, while the floor still spreads close to landscape's.
+  CAM_MUL = phoneMode ? 0.8 : 1;
   simSpeedMul = 1;                 // IDENTICAL physics on every device: mobile and desktop cars travel the exact
                                    // same real distance per second (fair for multiplayer, no world slow-down).
   // FIELD OF VIEW is now the SAME everywhere: FOV 100 (max/widest). Portrait was FOV 35, a much tighter
   // view, so the road and the cyan ground either side of it spread far less than in landscape — rotating
   // the phone visibly changed the scene. Value maps like the old 0-100 slider: CAM_DEPTH = 1.2 - value/100*0.7.
   FOV_MUL = 1;
-  CAM_DEPTH = 1.2 - 1.0 * 0.7;     // 0.5 — FOV 100, every device and orientation
+  CAM_DEPTH = phoneMode ? 0.72 : 0.5;   // phone portrait = FOV ~68 (see CAM_MUL above)  ·  landscape/desktop = FOV 100
   cv.width = Math.round(W * renderScale); cv.height = Math.round(H * renderScale);
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
   ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
