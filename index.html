@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783996240";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783996624";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1106,10 +1106,15 @@ function resize() {
   // Re-weld the arcade backdrop's painted horizon to the game's, which hzDrop() has just moved DOWN by HZ_F*H
   // in portrait. For a backdrop zoomed to Z of the viewport height whose own horizon sits at f of the art,
   // background-position p puts that horizon at p*(1-Z) + f*Z of the screen — so solve for the target.
-  // live camera tuner (see #camPanel) — its values win over the per-device defaults above
-  if (window.__camOv) { const o = window.__camOv;
-    if (o.cam != null) CAM_MUL = o.cam; if (o.fov != null) CAM_DEPTH = o.fov;
-    if (o.hz != null) HZ_F = o.hz;      if (o.dash != null) DASH_TOP_F = o.dash; }
+  // Live camera tuner (see #camPanel) — its values win over the per-device defaults above.
+  // Kept in TWO separate slots, one per orientation: a tweak made in portrait must never follow the phone into
+  // landscape (landscape already reads right and is not to be disturbed), and vice versa. Which slot applies is
+  // decided here, on every resize — so rotating the phone swaps the whole camera over by itself.
+  if (window.__camOv) { const o = phoneMode ? window.__camOv.p : window.__camOv.l;
+    if (o) {
+      if (o.cam != null) CAM_MUL = o.cam; if (o.fov != null) CAM_DEPTH = o.fov;
+      if (o.hz != null) HZ_F = o.hz;      if (o.dash != null) DASH_TOP_F = o.dash;
+    } }
   const BG_Z = 0.62, BG_F = 0.535, hzTarget = 0.5 + (phoneMode ? HZ_F : 0);
   document.body.style.setProperty('--arcHz', ((hzTarget - BG_F * BG_Z) / (1 - BG_Z) * 100).toFixed(1) + '%');
   cv.width = Math.round(W * renderScale); cv.height = Math.round(H * renderScale);
@@ -7503,28 +7508,38 @@ requestAnimationFrame(frame);
   // raw projection depth. Same mapping the settings slider always used: CAM_DEPTH = 1.2 - fov/100*0.7.
   const depthOf = fov => 1.2 - (fov / 100) * 0.7;
   const fovOf   = d   => Math.round((1.2 - d) / 0.7 * 100);
-  const DEF = () => ({ cam: CAM_MUL, fov: CAM_DEPTH, hz: HZ_F, dash: DASH_TOP_F });
-  let base = null;
+  // Which orientation am I tuning right now? phoneMode is the game's own portrait test, so the panel and the
+  // camera can never disagree about which slot they are talking about.
+  const slot = () => (phoneMode ? 'p' : 'l');
+  const DEF = { p: null, l: null };          // the untouched defaults, per orientation — what RESET restores
+  const title = document.querySelector('#camPanel > div');
+  function sync(){                            // pull the sliders + readout from whatever the camera is doing now
+    S[0].value = CAM_MUL; S[1].value = fovOf(CAM_DEPTH); S[2].value = HZ_F; S[3].value = DASH_TOP_F;
+    const fov = +S[1].value;
+    V[0].textContent = (+S[0].value).toFixed(2); V[1].textContent = fov;
+    V[2].textContent = (+S[2].value).toFixed(2); V[3].textContent = (+S[3].value).toFixed(2);
+    out.textContent = `${phoneMode ? 'PORTRAIT' : 'LANDSCAPE'} — eye ${(+S[0].value).toFixed(2)} · fov ${fov} · hz ${(+S[2].value).toFixed(2)} · dash ${(+S[3].value).toFixed(2)}`;
+    title.textContent = `CAMERA (${phoneMode ? 'portrait' : 'landscape'}) — drag, then send me the line below`;
+  }
   function push(){
     const fov = +S[1].value;
     const o = { cam: +S[0].value, fov: depthOf(fov), hz: +S[2].value, dash: +S[3].value };
-    window.__camOv = o;
+    // write ONLY into this orientation's slot — the other one keeps whatever it had (see resize())
+    window.__camOv = window.__camOv || { p: null, l: null };
+    window.__camOv[slot()] = o;
     CAM_MUL = o.cam; CAM_DEPTH = o.fov; HZ_F = o.hz; DASH_TOP_F = o.dash;
     resize();                                  // re-welds the backdrop art to the new horizon
     if (window.__vizLayout) window.__vizLayout();
-    V[0].textContent = o.cam.toFixed(2); V[1].textContent = fov;
-    V[2].textContent = o.hz.toFixed(2);  V[3].textContent = o.dash.toFixed(2);
-    out.textContent = `eye ${o.cam.toFixed(2)} · fov ${fov} · hz ${o.hz.toFixed(2)} · dash ${o.dash.toFixed(2)}`;
+    sync();
   }
   open.addEventListener('click', () => {
     const show = P.style.display === 'none';
     P.style.display = show ? 'block' : 'none';
-    if (show){
-      if (!base) base = DEF();
-      S[0].value = CAM_MUL; S[1].value = fovOf(CAM_DEPTH); S[2].value = HZ_F; S[3].value = DASH_TOP_F;
-      push();
-    }
+    if (show){ if (!DEF[slot()]) DEF[slot()] = { cam: CAM_MUL, fov: CAM_DEPTH, hz: HZ_F, dash: DASH_TOP_F }; sync(); }
   });
+  // Rotating swaps which slot is live (resize() has already applied it) — follow it, don't push, or the sliders
+  // would stamp portrait's numbers onto landscape the moment the phone turns.
+  window.addEventListener('resize', () => { if (P.style.display !== 'none') { if (!DEF[slot()]) DEF[slot()] = { cam: CAM_MUL, fov: CAM_DEPTH, hz: HZ_F, dash: DASH_TOP_F }; sync(); } });
   S.forEach(s => { s.addEventListener('input', push); s.addEventListener('change', push); });
   // STAND STILL — park the car so the camera can be judged on a held frame instead of a moving road.
   // update() already bails out entirely on dbgFreeze (it exists for screenshots), so this reuses it and just
@@ -7537,12 +7552,13 @@ requestAnimationFrame(frame);
     stop.textContent = on ? '▶ DRIVE AGAIN' : '⏸ STAND STILL';
     stop.style.color = stop.style.borderColor = on ? '#ff46cd' : '#39ff9e';
   });
+  // RESET clears THIS orientation only — landscape keeps its own state if you reset in portrait.
   document.getElementById('camReset').addEventListener('click', () => {
-    window.__camOv = null;
-    if (base){ CAM_MUL = base.cam; CAM_DEPTH = base.fov; HZ_F = base.hz; DASH_TOP_F = base.dash; }
+    if (window.__camOv) window.__camOv[slot()] = null;
+    const d = DEF[slot()];
+    if (d){ CAM_MUL = d.cam; CAM_DEPTH = d.fov; HZ_F = d.hz; DASH_TOP_F = d.dash; }
     resize(); if (window.__vizLayout) window.__vizLayout();
-    S[0].value = CAM_MUL; S[1].value = fovOf(CAM_DEPTH); S[2].value = HZ_F; S[3].value = DASH_TOP_F;
-    window.__camOv = null; push(); window.__camOv = null;
+    sync();
   });
 })();
 </script>
