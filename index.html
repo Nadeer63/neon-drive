@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1783910357";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1783987655";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -824,6 +824,20 @@ window.__B="1783910357";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
 <body>
 <div id="__bstamp" style="position:fixed;left:6px;bottom:4px;z-index:2147483647;font:12px monospace;color:#39ff9e;background:rgba(0,0,0,.55);padding:2px 7px;border-radius:5px;pointer-events:none">v····</div>
 <script>try{document.getElementById('__bstamp').textContent='v'+String(window.__B).slice(-4);}catch(e){}</script>
+
+<!-- LIVE CAMERA TUNER (temporary). Four rounds of "still too high" went by with me guessing at the lever from
+     screenshots, so the numbers are now in the player's hands: drag, read the line off the panel, send it back.
+     Sits above everything (the arcade canvas is z-index 12) and only appears when you tap 📷. -->
+<button id="camOpen" style="position:fixed;right:8px;bottom:6px;z-index:2147483000;font:14px monospace;color:#35e7ff;background:rgba(6,14,26,.85);border:1px solid #35e7ff;border-radius:8px;padding:6px 10px">📷 CAM</button>
+<div id="camPanel" style="display:none;position:fixed;right:8px;bottom:44px;z-index:2147483000;width:min(300px,86vw);background:rgba(6,14,26,.94);border:1px solid #35e7ff;border-radius:10px;padding:10px 12px;font:12px monospace;color:#cfe9ff">
+  <div style="color:#ff46cd;margin-bottom:6px">CAMERA — drag, then send me the line at the bottom</div>
+  <label style="display:block;margin:7px 0">EYE HEIGHT <b id="camV1"></b><input id="camS1" type="range" min="0.15" max="1.6" step="0.05" style="width:100%"></label>
+  <label style="display:block;margin:7px 0">ZOOM / FOV <b id="camV2"></b><input id="camS2" type="range" min="0.30" max="1.40" step="0.02" style="width:100%"></label>
+  <label style="display:block;margin:7px 0">HORIZON <b id="camV3"></b><input id="camS3" type="range" min="-0.15" max="0.30" step="0.01" style="width:100%"></label>
+  <label style="display:block;margin:7px 0">DASH TOP <b id="camV4"></b><input id="camS4" type="range" min="0.35" max="0.90" step="0.01" style="width:100%"></label>
+  <div id="camOut" style="margin-top:8px;padding:6px;background:#000;border-radius:6px;color:#39ff9e;user-select:all;-webkit-user-select:all"></div>
+  <button id="camReset" style="margin-top:8px;width:100%;font:12px monospace;color:#ff46cd;background:transparent;border:1px solid #ff46cd;border-radius:6px;padding:5px">RESET</button>
+</div>
 <canvas id="game"></canvas>
 <canvas id="hudcv"></canvas>
 <div id="loadCover"><div class="lcInner">
@@ -1091,6 +1105,10 @@ function resize() {
   // Re-weld the arcade backdrop's painted horizon to the game's, which hzDrop() has just moved DOWN by HZ_F*H
   // in portrait. For a backdrop zoomed to Z of the viewport height whose own horizon sits at f of the art,
   // background-position p puts that horizon at p*(1-Z) + f*Z of the screen — so solve for the target.
+  // live camera tuner (see #camPanel) — its values win over the per-device defaults above
+  if (window.__camOv) { const o = window.__camOv;
+    if (o.cam != null) CAM_MUL = o.cam; if (o.fov != null) CAM_DEPTH = o.fov;
+    if (o.hz != null) HZ_F = o.hz;      if (o.dash != null) DASH_TOP_F = o.dash; }
   const BG_Z = 0.62, BG_F = 0.535, hzTarget = 0.5 + (phoneMode ? HZ_F : 0);
   document.body.style.setProperty('--arcHz', ((hzTarget - BG_F * BG_Z) / (1 - BG_Z) * 100).toFixed(1) + '%');
   cv.width = Math.round(W * renderScale); cv.height = Math.round(H * renderScale);
@@ -7466,6 +7484,49 @@ requestAnimationFrame(frame);
   var wasLand=land();
   addEventListener('resize',function(){ if(land()!==wasLand){ wasLand=land(); trees=load(); sel=-1; render(); } });
   render();
+})();
+</script>
+
+<script>
+/* LIVE CAMERA TUNER — wiring for #camPanel (temporary; rip out once the numbers are baked in).
+   Top-level `let` from the main script shares the global lexical scope, so CAM_MUL / CAM_DEPTH / HZ_F /
+   DASH_TOP_F are writable straight from here. resize() re-derives them per device, so the chosen values are
+   parked on window.__camOv and re-applied there — otherwise a rotate or an address-bar collapse would silently
+   reset every slider. */
+(function(){
+  const P = document.getElementById('camPanel'), open = document.getElementById('camOpen');
+  const S = [1,2,3,4].map(i => document.getElementById('camS'+i));
+  const V = [1,2,3,4].map(i => document.getElementById('camV'+i));
+  const out = document.getElementById('camOut');
+  const DEF = () => ({ cam: CAM_MUL, fov: CAM_DEPTH, hz: HZ_F, dash: DASH_TOP_F });
+  let base = null;
+  function push(){
+    const o = { cam: +S[0].value, fov: +S[1].value, hz: +S[2].value, dash: +S[3].value };
+    window.__camOv = o;
+    CAM_MUL = o.cam; CAM_DEPTH = o.fov; HZ_F = o.hz; DASH_TOP_F = o.dash;
+    resize();                                  // re-welds the backdrop art to the new horizon
+    if (window.__vizLayout) window.__vizLayout();
+    V[0].textContent = o.cam.toFixed(2); V[1].textContent = o.fov.toFixed(2);
+    V[2].textContent = o.hz.toFixed(2);  V[3].textContent = o.dash.toFixed(2);
+    out.textContent = `eye ${o.cam.toFixed(2)} · fov ${o.fov.toFixed(2)} · hz ${o.hz.toFixed(2)} · dash ${o.dash.toFixed(2)}`;
+  }
+  open.addEventListener('click', () => {
+    const show = P.style.display === 'none';
+    P.style.display = show ? 'block' : 'none';
+    if (show){
+      if (!base) base = DEF();
+      S[0].value = CAM_MUL; S[1].value = CAM_DEPTH; S[2].value = HZ_F; S[3].value = DASH_TOP_F;
+      push();
+    }
+  });
+  S.forEach(s => { s.addEventListener('input', push); s.addEventListener('change', push); });
+  document.getElementById('camReset').addEventListener('click', () => {
+    window.__camOv = null;
+    if (base){ CAM_MUL = base.cam; CAM_DEPTH = base.fov; HZ_F = base.hz; DASH_TOP_F = base.dash; }
+    resize(); if (window.__vizLayout) window.__vizLayout();
+    S[0].value = CAM_MUL; S[1].value = CAM_DEPTH; S[2].value = HZ_F; S[3].value = DASH_TOP_F;
+    window.__camOv = null; push(); window.__camOv = null;
+  });
 })();
 </script>
 </body>
