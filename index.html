@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784081227";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784082006";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");location.replace(location.pathname.replace(/\/$/,"/")+"?b="+v);}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -844,6 +844,7 @@ window.__B="1784081227";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <label style="display:block;margin:6px 0">HORIZON <b id="camV3"></b><input id="camS3" type="range" min="-0.15" max="0.30" step="0.01" style="width:100%"></label>
   <label style="display:block;margin:6px 0">DASH TOP <b id="camV4"></b><input id="camS4" type="range" min="0.35" max="0.90" step="0.01" style="width:100%"></label>
   <label style="display:block;margin:6px 0">TRAFFIC CAR SIZE <b id="camV5"></b><input id="camS5" type="range" min="0.5" max="2.2" step="0.05" style="width:100%"></label>
+  <label style="display:block;margin:6px 0;color:#ff9aa2">HITBOX <b id="camV6"></b> <span style="opacity:.6">(red box · same in both rotations)</span><input id="camS6" type="range" min="0.3" max="2.2" step="0.05" style="width:100%"></label>
   <button id="camStop" style="margin-top:4px;width:100%;font:12px monospace;color:#39ff9e;background:rgba(0,0,0,.35);border:1px solid #39ff9e;border-radius:6px;padding:6px">⏸ STAND STILL</button>
   <div id="camOut" style="margin-top:7px;padding:6px;background:rgba(0,0,0,.6);border-radius:6px;color:#39ff9e;user-select:all;-webkit-user-select:all"></div>
   <button id="camReset" style="margin-top:7px;width:100%;font:12px monospace;color:#ff46cd;background:rgba(0,0,0,.35);border:1px solid #ff46cd;border-radius:6px;padding:5px">RESET</button>
@@ -1050,6 +1051,8 @@ let HZ_F = 0;                      // phone-portrait arcade: push the horizon th
                                    // ground strip is thin without moving the horizon at all — no drop needed.
 let DASH_TOP_F = 0.55;             // phone: the dashboard's leading edge, as a fraction of H (landscape sits at 0.55)
 let CAR_SIZE_F = 1;                // traffic-car scale (1 = stock). Purely visual — collision uses the road lane, not this.
+let HITBOX_F = 1;                  // collision-box scale (1 = stock). Scales BOTH the along-road (400) and lane-x (0.34)
+                                   // thresholds in update(). Gameplay, so it is NOT per-orientation — one value everywhere.
 let WHEEL_R_F  = 0.40;             // phone: wheel radius as a fraction of W  (scaled to the cockpit, not the old strip)
 let WHEEL_CY_F = 0.86;             // phone: wheel centre as a fraction of H — low enough that the bottom rim leaves the screen
 let CAM_DEPTH = 0.5;             // field-of-view depth; LOCKED per orientation in resize(): phone portrait = FOV 35, landscape/desktop = FOV 100 (max)
@@ -1851,7 +1854,7 @@ function update(dt) {
   for (const c of traffic) {
     // contact check runs even when FROZEN (M) so touching a car flashes red; otherwise it ends the run
     // (skipped entirely while the road is cleared at a milestone)
-    if (trafficClear <= 0 && !(trafficThin > 0 && c.__hide) && !c.ramp && Math.abs(c.z - position) < 400 && Math.abs(c.x - playerX) < 0.34 && playerY < 650) {
+    if (trafficClear <= 0 && !(trafficThin > 0 && c.__hide) && !c.ramp && Math.abs(c.z - position) < 400 * HITBOX_F && Math.abs(c.x - playerX) < 0.34 * HITBOX_F && playerY < 650) {
       crash();
       if (!parked && !dbgNoCrash) return;
     }
@@ -3208,6 +3211,7 @@ function render() {
     }
   }
 
+  if (window.__camShowHit) drawHitbox(camY, camZ);                  // red collision-zone outline while the CAM panel is open
   if (thirdPerson) drawChaseCar(camY, camZ); else drawPlayerCar();   // cockpit interior (shown in arcade too)
 
   // ---- city colour filter + vignette ----
@@ -5157,6 +5161,26 @@ function drawChaseCar(camY, camZ){
   ctx.drawImage(_carShadow, P.sx - dw * 0.4, P.sy - dh * 0.12, dw * 0.8, dh * 0.22);
   ctx.globalAlpha = 1;
   ctx.drawImage(img, dx, dy, dw, dh);
+  ctx.restore();
+}
+// Draw the collision zone as a red patch on the road, so HITBOX can be tuned by eye. It mirrors update()'s
+// test exactly: contact fires when a car is within 0.34*HITBOX_F in lane-x and 400*HITBOX_F along the road.
+// A lane-x of ±0.34 maps to world x of ±0.34*ROAD_W (cars draw at car.x*roadHalfWidth), and near the camera
+// the road's curve offset is ~0, so projecting with camX=0 lines the patch up with where cars actually are.
+function drawHitbox(camY, camZ){
+  const hw = 0.34 * HITBOX_F * ROAD_W, cx = playerX * ROAD_W;
+  // The real contact zone (position ± 400) sits right under the camera and projects OFF the bottom of the
+  // screen, behind the dash — invisible. So draw a CORRIDOR of the same lane-x half-width (0.34*HITBOX_F) on
+  // the visible road ahead instead: laterally it is exactly the kill width, which is what there is to tune.
+  const zN = position + 6000, zF = position + 20000;
+  const c = [ {x:cx-hw,y:0,z:zN}, {x:cx+hw,y:0,z:zN}, {x:cx+hw,y:0,z:zF}, {x:cx-hw,y:0,z:zF} ];
+  for (const p of c) project(p, 0, camY, camZ);
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(c[0].sx, c[0].sy);
+  for (let i = 1; i < 4; i++) ctx.lineTo(c[i].sx, c[i].sy);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,55,70,0.22)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,90,100,0.95)'; ctx.lineWidth = 2; ctx.shadowColor = '#ff3c46'; ctx.shadowBlur = 8; ctx.stroke();
   ctx.restore();
 }
 function drawPlayerCar(){
@@ -7527,6 +7551,7 @@ requestAnimationFrame(frame);
   const S = [1,2,3,4,5].map(i => document.getElementById('camS'+i));
   const V = [1,2,3,4,5].map(i => document.getElementById('camV'+i));
   const out = document.getElementById('camOut');
+  const hitS = document.getElementById('camS6'), hitV = document.getElementById('camV6');
   // FIELD OF VIEW is shown on the game's own 0-100 scale (0 = tightest/most zoomed, 100 = widest), not as the
   // raw projection depth. Same mapping the settings slider always used: CAM_DEPTH = 1.2 - fov/100*0.7.
   const depthOf = fov => 1.2 - (fov / 100) * 0.7;
@@ -7542,9 +7567,12 @@ requestAnimationFrame(frame);
     V[0].textContent = (+S[0].value).toFixed(2); V[1].textContent = fov;
     V[2].textContent = (+S[2].value).toFixed(2); V[3].textContent = (+S[3].value).toFixed(2);
     V[4].textContent = (+S[4].value).toFixed(2);
-    out.textContent = `${phoneMode ? 'PORTRAIT' : 'LANDSCAPE'} — eye ${(+S[0].value).toFixed(2)} · fov ${fov} · hz ${(+S[2].value).toFixed(2)} · dash ${(+S[3].value).toFixed(2)} · cars ${(+S[4].value).toFixed(2)}`;
+    hitS.value = HITBOX_F; hitV.textContent = (+HITBOX_F).toFixed(2);   // HITBOX is global (not per-orientation)
+    out.textContent = `${phoneMode ? 'PORTRAIT' : 'LANDSCAPE'} — eye ${(+S[0].value).toFixed(2)} · fov ${fov} · hz ${(+S[2].value).toFixed(2)} · dash ${(+S[3].value).toFixed(2)} · cars ${(+S[4].value).toFixed(2)} · hit ${(+HITBOX_F).toFixed(2)}`;
     title.textContent = `CAMERA (${phoneMode ? 'portrait' : 'landscape'})`;
   }
+  const pushHit = () => { HITBOX_F = +hitS.value; window.__hitbox = HITBOX_F; sync(); };
+  hitS.addEventListener('input', pushHit); hitS.addEventListener('change', pushHit);
   function push(){
     const fov = +S[1].value;
     const o = { cam: +S[0].value, fov: depthOf(fov), hz: +S[2].value, dash: +S[3].value, car: +S[4].value };
@@ -7559,6 +7587,7 @@ requestAnimationFrame(frame);
   open.addEventListener('click', () => {
     const show = P.style.display === 'none';
     P.style.display = show ? 'block' : 'none';
+    window.__camShowHit = show;                 // draw the red collision box only while the panel is open
     if (show){ if (!DEF[slot()]) DEF[slot()] = { cam: CAM_MUL, fov: CAM_DEPTH, hz: HZ_F, dash: DASH_TOP_F, car: CAR_SIZE_F }; sync(); }
   });
   // Rotating swaps which slot is live (resize() has already applied it) — follow it, don't push, or the sliders
