@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784244375";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784244782";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -844,6 +844,8 @@ window.__B="1784244375";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <label style="display:block;margin:6px 0">HORIZON <b id="camV3"></b><input id="camS3" type="range" min="-0.15" max="0.30" step="0.01" style="width:100%"></label>
   <label style="display:block;margin:6px 0">DASH TOP <b id="camV4"></b><input id="camS4" type="range" min="0.35" max="0.90" step="0.01" style="width:100%"></label>
   <label style="display:block;margin:6px 0">TRAFFIC CAR SIZE <b id="camV5"></b><input id="camS5" type="range" min="0.5" max="2.2" step="0.05" style="width:100%"></label>
+  <label style="display:block;margin:6px 0">TRAFFIC ← → <b id="camV7"></b><input id="camS7" type="range" min="-200" max="200" step="2" style="width:100%"></label>
+  <label style="display:block;margin:6px 0">TRAFFIC ↑ ↓ <b id="camV8"></b><input id="camS8" type="range" min="-200" max="200" step="2" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#ff9aa2">HITBOX <b id="camV6"></b> <span style="opacity:.6">(red box · same in both rotations)</span><input id="camS6" type="range" min="0.3" max="2.2" step="0.05" style="width:100%"></label>
   <button id="camStop" style="margin-top:4px;width:100%;font:12px monospace;color:#39ff9e;background:rgba(0,0,0,.35);border:1px solid #39ff9e;border-radius:6px;padding:6px">⏸ STAND STILL</button>
   <div id="camOut" style="margin-top:7px;padding:6px;background:rgba(0,0,0,.6);border-radius:6px;color:#39ff9e;user-select:all;-webkit-user-select:all"></div>
@@ -1057,6 +1059,8 @@ let DASH_TOP_F = 0.55;             // phone: the dashboard's leading edge, as a 
 let CAR_SIZE_F = 1;                // traffic-car scale (1 = stock). Purely visual — collision uses the road lane, not this.
 let HITBOX_F = 1;                  // collision-box scale (1 = stock). Scales BOTH the along-road (400) and lane-x (0.34)
                                    // thresholds in update(). Gameplay, so it is NOT per-orientation — one value everywhere.
+let TRAFFIC_DX = 0, TRAFFIC_DY = 0; // screen-px nudge for ALL traffic sprites (live tuner). Per-orientation. VISUAL only —
+                                   // collision still uses each car's true lane/depth, not the drawn offset.
 let WHEEL_R_F  = 0.40;             // phone: wheel radius as a fraction of W  (scaled to the cockpit, not the old strip)
 let WHEEL_CY_F = 0.86;             // phone: wheel centre as a fraction of H — low enough that the bottom rim leaves the screen
 let CAM_DEPTH = 0.5;             // field-of-view depth; LOCKED per orientation in resize(): phone portrait = FOV 35, landscape/desktop = FOV 100 (max)
@@ -1128,12 +1132,13 @@ function resize() {
   // Kept in TWO separate slots, one per orientation: a tweak made in portrait must never follow the phone into
   // landscape (landscape already reads right and is not to be disturbed), and vice versa. Which slot applies is
   // decided here, on every resize — so rotating the phone swaps the whole camera over by itself.
-  CAR_SIZE_F = 1;
+  CAR_SIZE_F = 1; TRAFFIC_DX = 0; TRAFFIC_DY = 0;
   if (window.__camOv) { const o = phoneMode ? window.__camOv.p : window.__camOv.l;
     if (o) {
       if (o.cam != null) CAM_MUL = o.cam; if (o.fov != null) CAM_DEPTH = o.fov;
       if (o.hz != null) HZ_F = o.hz;      if (o.dash != null) DASH_TOP_F = o.dash;
       if (o.car != null) CAR_SIZE_F = o.car;
+      if (o.tx != null) TRAFFIC_DX = o.tx; if (o.ty != null) TRAFFIC_DY = o.ty;
     } }
   const BG_Z = 0.62, BG_F = 0.535, hzTarget = 0.5 + (phoneMode ? HZ_F : 0);
   document.body.style.setProperty('--arcHz', ((hzTarget - BG_F * BG_Z) / (1 - BG_Z) * 100).toFixed(1) + '%');
@@ -4291,14 +4296,14 @@ function thinAlphaFor(car){
 }
 function drawCar(car, b, fog, clipY, front, fade, bf){
   const T = car.taxi ? CAR_TYPES[0] : (CAR_TYPES[(car.type | 0) % CAR_TYPES.length] || CAR_TYPES[0]);   // taxis are always sedans
-  const cx = b.sx + car.x * b.sw;
+  const cx = b.sx + car.x * b.sw + TRAFFIC_DX;   // TRAFFIC_DX/DY = live tuner's screen nudge for the whole traffic
   const w = b.sw * 0.46 * CAR_SIZE_F;    // overall width (0.46 keeps it under the lane gap so neighbours don't merge;
                                          // CAR_SIZE_F is the live tuner's traffic-car scale — 1 = stock)
   if (w < 2) return;
   const h = w * T.h;
   // frozen (M): hold a close car near the spot it's at when you first reach it, so it stays visible while you
   // drive THROUGH it instead of dropping off the bottom / vanishing. Clamped near its natural spot so it doesn't jump.
-  const bottom = parked ? Math.min(b.sy, H * 0.85) : b.sy;
+  const bottom = (parked ? Math.min(b.sy, H * 0.85) : b.sy) + TRAFFIC_DY;
   const near = w > 16;                   // near cars get glossy gradients + glow
 
   // ---- generated Supra: pick the turntable frame by VIEWING ANGLE (rear when behind, side when
@@ -7552,8 +7557,8 @@ requestAnimationFrame(frame);
    reset every slider. */
 (function(){
   const P = document.getElementById('camPanel'), open = document.getElementById('camOpen');
-  const S = [1,2,3,4,5].map(i => document.getElementById('camS'+i));
-  const V = [1,2,3,4,5].map(i => document.getElementById('camV'+i));
+  const S = [1,2,3,4,5,7,8].map(i => document.getElementById('camS'+i));   // S[5]=traffic X, S[6]=traffic Y
+  const V = [1,2,3,4,5,7,8].map(i => document.getElementById('camV'+i));
   const out = document.getElementById('camOut');
   const hitS = document.getElementById('camS6'), hitV = document.getElementById('camV6');
   // FIELD OF VIEW is shown on the game's own 0-100 scale (0 = tightest/most zoomed, 100 = widest), not as the
@@ -7566,7 +7571,7 @@ requestAnimationFrame(frame);
   // The per-orientation defaults resize() applies (phone portrait vs everything else). Used as the fallback in
   // the pop-out remote when a slot has no saved values yet, so it shows portrait's real defaults instead of the
   // control window's own (landscape) camera. Keep in step with resize().
-  const ORI_DEF = { p: { cam:0.8, fov:0.72, hz:0, dash:0.55, car:1 }, l: { cam:1, fov:0.5, hz:0, dash:0.55, car:1 } };
+  const ORI_DEF = { p: { cam:0.8, fov:0.72, hz:0, dash:0.55, car:1, tx:0, ty:0 }, l: { cam:1, fov:0.5, hz:0, dash:0.55, car:1, tx:0, ty:0 } };
   const DEF = { p: null, l: null };          // the untouched defaults, per orientation — what RESET restores
   const title = document.getElementById('camTitle');
   function sync(){                            // pull the sliders + readout from whatever the camera is doing now
@@ -7574,12 +7579,14 @@ requestAnimationFrame(frame);
     // so read the edited slot directly when it exists; otherwise fall back to the live globals.
     const sl = (window.__camOv && window.__camOv[slot()]);
     const src = window.__panelSlotOverride ? (sl || ORI_DEF[slot()])
-              : { cam: CAM_MUL, fov: CAM_DEPTH, hz: HZ_F, dash: DASH_TOP_F, car: CAR_SIZE_F };
+              : { cam: CAM_MUL, fov: CAM_DEPTH, hz: HZ_F, dash: DASH_TOP_F, car: CAR_SIZE_F, tx: TRAFFIC_DX, ty: TRAFFIC_DY };
     S[0].value = src.cam; S[1].value = fovOf(src.fov); S[2].value = src.hz; S[3].value = src.dash; S[4].value = src.car;
+    S[5].value = src.tx || 0; S[6].value = src.ty || 0;
     const fov = +S[1].value;
     V[0].textContent = (+S[0].value).toFixed(2); V[1].textContent = fov;
     V[2].textContent = (+S[2].value).toFixed(2); V[3].textContent = (+S[3].value).toFixed(2);
     V[4].textContent = (+S[4].value).toFixed(2);
+    V[5].textContent = (+S[5].value) + 'px'; V[6].textContent = (+S[6].value) + 'px';
     hitS.value = HITBOX_F; hitV.textContent = (+HITBOX_F).toFixed(2);   // HITBOX is global (not per-orientation)
     const isP = slot() === 'p';
     out.textContent = `${isP ? 'PORTRAIT' : 'LANDSCAPE'} — eye ${(+S[0].value).toFixed(2)} · fov ${fov} · hz ${(+S[2].value).toFixed(2)} · dash ${(+S[3].value).toFixed(2)} · cars ${(+S[4].value).toFixed(2)} · hit ${(+HITBOX_F).toFixed(2)}`;
@@ -7616,11 +7623,11 @@ requestAnimationFrame(frame);
   hitS.addEventListener('input', pushHit); hitS.addEventListener('change', pushHit);
   function push(){
     const fov = +S[1].value;
-    const o = { cam: +S[0].value, fov: depthOf(fov), hz: +S[2].value, dash: +S[3].value, car: +S[4].value };
+    const o = { cam: +S[0].value, fov: depthOf(fov), hz: +S[2].value, dash: +S[3].value, car: +S[4].value, tx: +S[5].value, ty: +S[6].value };
     // write ONLY into this orientation's slot — the other one keeps whatever it had (see resize())
     window.__camOv = window.__camOv || { p: null, l: null };
     window.__camOv[slot()] = o;
-    CAM_MUL = o.cam; CAM_DEPTH = o.fov; HZ_F = o.hz; DASH_TOP_F = o.dash; CAR_SIZE_F = o.car;
+    CAM_MUL = o.cam; CAM_DEPTH = o.fov; HZ_F = o.hz; DASH_TOP_F = o.dash; CAR_SIZE_F = o.car; TRAFFIC_DX = o.tx; TRAFFIC_DY = o.ty;
     resize();                                  // re-welds the backdrop art to the new horizon
     if (window.__vizLayout) window.__vizLayout();
     sync();
@@ -7631,7 +7638,7 @@ requestAnimationFrame(frame);
     P.style.display = show ? 'block' : 'none';
     window.__camShowHit = show;                 // draw the red collision box only while the panel is open
     broadcast({ showHit: show });
-    if (show){ if (!DEF[slot()]) DEF[slot()] = { cam: CAM_MUL, fov: CAM_DEPTH, hz: HZ_F, dash: DASH_TOP_F, car: CAR_SIZE_F }; sync(); }
+    if (show){ if (!DEF[slot()]) DEF[slot()] = { cam: CAM_MUL, fov: CAM_DEPTH, hz: HZ_F, dash: DASH_TOP_F, car: CAR_SIZE_F, tx: TRAFFIC_DX, ty: TRAFFIC_DY }; sync(); }
   });
   // SAVE — persist to localStorage so the values survive a reload (and seed the next pop-out tab).
   const saveBtn = document.getElementById('camSave');
@@ -7647,7 +7654,7 @@ requestAnimationFrame(frame);
   });
   // Rotating swaps which slot is live (resize() has already applied it) — follow it, don't push, or the sliders
   // would stamp portrait's numbers onto landscape the moment the phone turns.
-  window.addEventListener('resize', () => { if (P.style.display !== 'none') { if (!DEF[slot()]) DEF[slot()] = { cam: CAM_MUL, fov: CAM_DEPTH, hz: HZ_F, dash: DASH_TOP_F, car: CAR_SIZE_F }; sync(); } });
+  window.addEventListener('resize', () => { if (P.style.display !== 'none') { if (!DEF[slot()]) DEF[slot()] = { cam: CAM_MUL, fov: CAM_DEPTH, hz: HZ_F, dash: DASH_TOP_F, car: CAR_SIZE_F, tx: TRAFFIC_DX, ty: TRAFFIC_DY }; sync(); } });
   S.forEach(s => { s.addEventListener('input', push); s.addEventListener('change', push); });
   // HIDE — collapse to just the title bar so the panel isn't in front of whatever you're judging.
   const body = document.getElementById('camBody'), hide = document.getElementById('camHide');
@@ -7672,7 +7679,7 @@ requestAnimationFrame(frame);
   document.getElementById('camReset').addEventListener('click', () => {
     if (window.__camOv) window.__camOv[slot()] = null;
     const d = DEF[slot()];
-    if (d){ CAM_MUL = d.cam; CAM_DEPTH = d.fov; HZ_F = d.hz; DASH_TOP_F = d.dash; CAR_SIZE_F = d.car; }
+    if (d){ CAM_MUL = d.cam; CAM_DEPTH = d.fov; HZ_F = d.hz; DASH_TOP_F = d.dash; CAR_SIZE_F = d.car; TRAFFIC_DX = d.tx||0; TRAFFIC_DY = d.ty||0; }
     resize(); if (window.__vizLayout) window.__vizLayout();
     sync(); broadcast();
   });
@@ -7711,7 +7718,7 @@ requestAnimationFrame(frame);
       title.textContent = 'CAMERA (' + (ori === 'p' ? 'portrait' : 'landscape') + ')';
       // load that slot's values into the sliders so you continue editing it
       const o = (window.__camOv && window.__camOv[ori]);
-      if (o){ CAM_MUL=o.cam; CAM_DEPTH=o.fov; HZ_F=o.hz; DASH_TOP_F=o.dash; CAR_SIZE_F=o.car; }
+      if (o){ CAM_MUL=o.cam; CAM_DEPTH=o.fov; HZ_F=o.hz; DASH_TOP_F=o.dash; CAR_SIZE_F=o.car; TRAFFIC_DX=o.tx||0; TRAFFIC_DY=o.ty||0; }
       sync();
     }));
     paint();
