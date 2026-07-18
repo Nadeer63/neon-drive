@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784405789";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784407345";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1711,7 +1711,7 @@ function curveAt(z) {
 // road elevation at world-z. Dead flat until SCORE crosses a 6500 milestone
 // (score = position/100) — 6500, 13000, ... — then ONE hill: ~4s up, ~3s down,
 // then a straight/flat run until the next milestone.
-const HILL_HEIGHT = 15000;
+const HILL_HEIGHT = 6000;   // ~6x cam height: dramatic hill that still shows road on the CLIMB (taller values foreshorten the ascent into a flat cyan band — the "no road at the crest" bug)
 const HILL_UP = MAX_SPEED * 4;                   // ~4 seconds climbing
 const HILL_DOWN = MAX_SPEED * 3;                 // ~3 seconds descending
 function hillShape(d) {                           // d = distance into the hill; eased flat->hill->flat
