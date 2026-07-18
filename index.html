@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784395399";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784396492";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1733,13 +1733,8 @@ function rampRise(z) {
 }
 function hillAt(z) {
   let h = 0;
-  // ARCADE stays a FLAT neon grid: its floor is drawn from flat anchors (y:0), so a rolling hill detaches the
-  // grid from the terrain — the road vanishes into a dark band on the climb (see the 6,500-score hill). Skip
-  // the rolling hills in arcade; jump-ramps (rampRise) still work.
-  if (gameMode !== 'arcade') {
-    if (forcedHillStart >= 0 && z >= forcedHillStart && z < forcedHillStart + HILL_UP + HILL_DOWN) h = hillShape(z - forcedHillStart);  // X-key hill
-    else if (z >= 650000) h = hillShape(z % 650000);   // a hill at each 6500 milestone (dead flat before)
-  }
+  if (forcedHillStart >= 0 && z >= forcedHillStart && z < forcedHillStart + HILL_UP + HILL_DOWN) h = hillShape(z - forcedHillStart);  // X-key hill
+  else if (z >= 650000) h = hillShape(z % 650000);   // a hill at each 6500 milestone (dead flat before)
   return h + rampRise(z);                             // ramps raise the road + camera together (drive-up feel)
 }
 // true while the player is climbing/descending a hill (used to swap to slot-2 traffic)
@@ -2629,6 +2624,14 @@ function render() {
     // Far anchor uses camX=0 so the grid's VANISHING POINT stays glued to the fixed sun/buildings backdrop (no drag up there).
     // Near anchor pans with the player so the FOREGROUND still responds to steering. -> grid leans, horizon holds.
     const camXw = playerX * ROAD_W;
+    // GRID CAMERA HEIGHT, minus the gameplay-hill offset. camY balloons on a hill (hillAt can be 10x CAM_H),
+    // which shoved the flat grid — and its horizon (vy) — way down the screen, behind the dashboard, so the
+    // whole floor vanished on a climb. Projecting the grid from camYg (hill removed) keeps the horizon glued
+    // to the fixed backdrop; the hill is added back per-depth as a displacement (see hillY / hillYroad) so the
+    // road rolls up and down but never collapses. Matches how the cars project (proven: grid_flat - car = the
+    // exact displacement we subtract).
+    const hillHere = hillAt(position);
+    const camYg = camY - hillHere;
     // SUB-PIXEL projection for the grid anchors. project() does Math.round() on sx/sy — fine for
     // sprites, fatal here: every vertical column is anchored to `bx` (near) and `vx` (vanishing point),
     // so rounding them to whole pixels made the entire fan of columns SNAP sideways in 1px steps as you
@@ -2637,7 +2640,7 @@ function render() {
     const projF = (p, camX) => {
       const sc = (CAM_DEPTH * FOV_MUL) / (p.z - camZ);
       p.sx = (W / 2) + (sc * (p.x - camX) * PW) / 2;
-      p.sy = (H / 2) - (sc * (p.y - camY) * PH) / 2 - camPitch;
+      p.sy = (H / 2) - (sc * (p.y - camYg) * PH) / 2 - camPitch;   // camYg: horizon stays put on hills
       p.sw = (sc * ROAD_W * PW) / 2;
     };
     const fp = { x: wxAt(camZ + 16000), y: 0, z: camZ + 16000 }; projF(fp, 0);        // far anchor LOCKED to backdrop
@@ -2674,14 +2677,25 @@ function render() {
       0.62 * Math.sin(wx * HILL_K1X + wz * HILL_K1Z) +
       0.38 * Math.sin(wx * HILL_K2X - wz * HILL_K2Z + 2.1)
     );
-    const K_DEPTH = (CAM_DEPTH * FOV_MUL * camY * PH) / 2;
-    // screen y of the ground surface at screen (x, yFlat)
+    const K_DEPTH = (CAM_DEPTH * FOV_MUL * camYg * PH) / 2;
+    // Gameplay-hill displacement at a screen row: the road at depth wz is at height hillAt(wz); relative to the
+    // grid baseline (hillHere, the road under the camera) that is (hillAt(wz) - hillHere). This rolls the road
+    // up on the climb and down on the descent while the horizon (vy) stays fixed to the backdrop.
+    const gameHillDY = wz => hillAt(wz) - hillHere;
+    // screen y of the ROAD surface (gameplay hill only — the road stays smooth, no decorative swell)
+    const hillYroad = (x, yFlat) => {
+      const dy = yFlat - vy;
+      if (dy <= 0.5) return yFlat;
+      const wz = camZ + K_DEPTH / dy;
+      return yFlat - dy * gameHillDY(wz) / camYg;
+    };
+    // screen y of the GROUND surface = decorative sine swell + the gameplay hill
     const hillY = (x, yFlat) => {
       const dy = yFlat - vy;
       if (dy <= 0.5) return yFlat;                            // at/above the horizon: no displacement
       const wz = camZ + K_DEPTH / dy;
-      const wx = camXw + (x - W / 2) * (camY * PH) / (dy * PW);
-      return yFlat - dy * hillH(wx, wz) / camY;
+      const wx = camXw + (x - W / 2) * (camYg * PH) / (dy * PW);
+      return yFlat - dy * (hillH(wx, wz) + gameHillDY(wz)) / camYg;
     };
     // Road = triangle from the vanishing point out to the near edges.
     // NOTE: must NOT call beginPath() — the ground pass builds an even-odd clip of "screen MINUS road"
@@ -2766,7 +2780,8 @@ function render() {
       const al = ss(((kCut - (i + phase)) / FADE_ROWS));
       ctx.shadowColor = GRID_PINK;
       ctx.fillStyle = `rgba(${PINK_RGB},${al * PINK_ROW_A})`;   // menu .mGrid horizontals: rgba(255,70,205,.95)
-      ctx.fillRect(xc - rhw, y - 1, rhw * 2, 2);                         // road row ONLY — the ground
+      const yhr = hillYroad(xc, y);                                       // road row rides the gameplay hill
+      ctx.fillRect(xc - rhw, yhr - 1, rhw * 2, 2);                        // road row ONLY — the ground
     }                                                                     // gets its own finer grid below
 
     // ===== GROUND rows (cyan) — a SEPARATE, FINER grid than the road =====
@@ -2848,7 +2863,7 @@ function render() {
     let _colsDrawn = 0;                                      // dev: how many columns actually make the path
     // `hilly` = follow the terrain. The ground columns MUST bend over the same height field as the
     // ground rows or the two halves of the wireframe come apart. The road's columns stay dead straight.
-    const drawCols = (stroke, glowCol, colGap, jMax, hilly) => {
+    const drawCols = (stroke, glowCol, colGap, jMax, dispFn) => {   // dispFn = per-depth terrain displacement (hillY ground / hillYroad road), or null for a flat line
       ctx.shadowColor = glowCol; ctx.strokeStyle = stroke;
       ctx.beginPath();
       for (let j = -jMax; j <= jMax; j++) {                  // wide range so columns still fill the screen when the grid pans with steering
@@ -2864,13 +2879,13 @@ function render() {
         const xv = vx + (xb - vx) * tVis;                     // x where it leaves the visible floor
         if (Math.max(xf, xv) < 0 || Math.min(xf, xv) > W) continue;
         _colsDrawn++;
-        if (!hilly) { ctx.moveTo(xf, colTopY); ctx.lineTo(xb, by); continue; }
+        if (!dispFn) { ctx.moveTo(xf, colTopY); ctx.lineTo(xb, by); continue; }
         // walk the column down the screen, riding the terrain
         const STEPS = 14;
         for (let s = 0; s <= STEPS; s++) {
           const yy = colTopY + (by - colTopY) * (s / STEPS);
           const xx = vx + (xb - vx) * ((yy - vy) / span);     // this column's x at that depth
-          const yh = hillY(xx, yy);
+          const yh = dispFn(xx, yy);
           if (s === 0) ctx.moveTo(xx, yh); else ctx.lineTo(xx, yh);
         }
       }
@@ -2879,7 +2894,7 @@ function render() {
     ctx.save();                                              // GROUND columns (cyan) — everything OUTSIDE the road wedge
     ctx.beginPath(); ctx.rect(0, 0, W, H); roadWedge();
     ctx.clip('evenodd');
-    drawCols(cyanColFade(), GRID_CYAN, gapG, 77, true);      // gapG = finer menu ground pitch; hilly = rides the terrain
+    drawCols(cyanColFade(), GRID_CYAN, gapG, 77, hillY);     // gapG = finer menu ground pitch; rides the swell + gameplay hill
     ctx.restore();
     ctx.save();                                              // ROAD columns (pink) — INSIDE the road wedge
     ctx.beginPath(); roadWedge(); ctx.clip();               // road pass opens its own path now
@@ -2890,7 +2905,7 @@ function render() {
     roadRefl.addColorStop(1, 'rgba(255,134,214,0.13)');
     ctx.shadowBlur = 0; ctx.fillStyle = roadRefl; ctx.fillRect(0, vy, W, by - vy);
     ctx.shadowBlur = glow;                                  // restore the neon glow for the column strokes
-    drawCols(colFade(255, 134, 214, PINK_COL_A), GRID_PINK, gap, 44, false);   // road stays FLAT; .mGrid verticals are .8 alpha
+    drawCols(colFade(255, 134, 214, PINK_COL_A), GRID_PINK, gap, 44, hillYroad);   // road rides the gameplay hill (no decorative swell)
     ctx.restore();
     window.__gridDbg.colsDrawn = _colsDrawn;                 // dev: total columns stroked this frame
     ctx.shadowBlur = glow;                                   // restore the glow the clipped passes were drawn with
@@ -2909,8 +2924,14 @@ function render() {
     ctx.beginPath();
     for (const s of [-1, 1]) {
       const xbEdge = bx + s * rwNear;                         // road edge at the near/bottom
-      const xfEdge = vx + (xbEdge - vx) * tTop;               // road edge where it reaches the horizon
-      ctx.moveTo(xfEdge, colTopY); ctx.lineTo(xbEdge, by);
+      // walk the edge down the screen so it rides the gameplay hill like the road it borders
+      const ESTEPS = 14;
+      for (let e = 0; e <= ESTEPS; e++) {
+        const yy = colTopY + (by - colTopY) * (e / ESTEPS);
+        const xx = vx + (xbEdge - vx) * ((yy - vy) / span);
+        const yh = hillYroad(xx, yy);
+        if (e === 0) ctx.moveTo(xx, yh); else ctx.lineTo(xx, yh);
+      }
     }
     ctx.stroke();
     ctx.shadowBlur = 0;
