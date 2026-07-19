@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784478265";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784478748";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -920,7 +920,7 @@ window.__B="1784478265";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <label style="display:block;margin:6px 0">TRAFFIC ↑ ↓ <b id="camV8"></b><input id="camS8" type="range" min="-200" max="360" step="2" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#ff9aa2">HITBOX <b id="camV6"></b> <span style="opacity:.6">(red box · same in both rotations)</span><input id="camS6" type="range" min="0.3" max="2.2" step="0.05" style="width:100%"></label>
   <div style="margin:9px 0 3px;border-top:1px solid rgba(53,231,255,.35);padding-top:6px;color:#8ff">📱 MOBILE</div>
-  <label style="display:block;margin:6px 0;color:#8ff">GAME RESOLUTION <b id="camVRes"></b><input id="camSRes" type="range" min="0.30" max="2.00" step="0.05" style="width:100%"></label>
+  <label style="display:block;margin:6px 0;color:#8ff">GAME RESOLUTION <b id="camVRes"></b><input id="camSRes" type="range" min="0.25" max="2.00" step="0.05" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">GAME HEIGHT (tallness) <b id="camVTall"></b><input id="camSTall" type="range" min="0.60" max="2.40" step="0.05" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#ffcf8f">🌆 CITY + SUN — closer / farther (whole skyline) <b id="camVCity"></b><input id="camSCity" type="range" min="0.40" max="1.80" step="0.02" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS WIDTH <b id="camVBs"></b><input id="camSBs" type="range" min="70" max="320" step="4" style="width:100%"></label>
@@ -934,6 +934,8 @@ window.__B="1784478265";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
     <button id="camPop" style="flex:1;font:12px monospace;color:#35e7ff;background:rgba(0,0,0,.35);border:1px solid #35e7ff;border-radius:6px;padding:6px">↗ POP-OUT</button>
   </div>
   <button id="camReset" style="margin-top:6px;width:100%;font:12px monospace;color:#ff46cd;background:rgba(0,0,0,.35);border:1px solid #ff46cd;border-radius:6px;padding:5px">RESET</button>
+  <button id="camPhone" style="margin-top:6px;width:100%;font:bold 12px monospace;color:#0a1420;background:#ffcf5a;border:1px solid #ffcf5a;border-radius:6px;padding:7px">📲 SEND TO PHONE (copy link)</button>
+  <div id="camPhoneOut" style="display:none;margin-top:6px;padding:6px;background:rgba(0,0,0,.6);border-radius:6px;color:#ffcf5a;font-size:10px;word-break:break-all;user-select:all;-webkit-user-select:all"></div>
   </div>
 </div>
 <canvas id="game"></canvas>
@@ -7883,7 +7885,8 @@ requestAnimationFrame(frame);
   }
   function syncMob(){
     const m = mobDefaults(window.__mob);
-    resS.value = m.res; bsS.value = m.bs; bhS.value = m.bh; bgS.value = m.bg; byS.value = m.by; tallS.value = m.tall; cityS.value = m.city;
+    resS.value = m.res > 0 ? m.res : 0.25;   // 0.25 = the slider's leftmost "AUTO" stop (min); a real lock is >=0.30
+    bsS.value = m.bs; bhS.value = m.bh; bgS.value = m.bg; byS.value = m.by; tallS.value = m.tall; cityS.value = m.city;
     const eff = m.res > 0 ? m.res : RS_DEF;
     const bx = window.__box || { w: innerWidth, h: innerHeight };
     resV.textContent = (m.res > 0 ? m.res.toFixed(2) + '×' : 'AUTO') + '  (' + Math.round(bx.w * eff) + '×' + Math.round(bx.h * eff) + ')';
@@ -7892,7 +7895,8 @@ requestAnimationFrame(frame);
     cityV.textContent = (+m.city).toFixed(2) + '×' + (m.city > 1 ? ' (closer)' : m.city < 1 ? ' (farther)' : '');
   }
   function pushMob(){
-    window.__mob = { res: +resS.value, bs: +bsS.value, bh: +bhS.value, bg: +bgS.value, by: +byS.value, tall: +tallS.value, city: +cityS.value };
+    const res = +resS.value < 0.30 ? 0 : +resS.value;   // leftmost stop = AUTO (0), so nudging other sliders can't accidentally lock a low resolution
+    window.__mob = { res, bs: +bsS.value, bh: +bhS.value, bg: +bgS.value, by: +byS.value, tall: +tallS.value, city: +cityS.value };
     applyMob(); syncMob(); broadcast();
   }
   [resS, bsS, bhS, bgS, byS, tallS, cityS].forEach(s => { s.addEventListener('input', pushMob); s.addEventListener('change', pushMob); });
@@ -7948,7 +7952,27 @@ requestAnimationFrame(frame);
     bc.postMessage(Object.assign({ ov: window.__camOv, hitbox: HITBOX_F, mob: window.__mob }, extra || {}));
   }
   function saveCfg(){ try { localStorage.setItem(KEY, JSON.stringify({ ov: window.__camOv, hitbox: HITBOX_F, mob: window.__mob })); } catch(e){} }
-  function loadCfg(){ try { const c = JSON.parse(localStorage.getItem(KEY) || 'null'); if (c) applyCfg(c); } catch(e){} }
+  function loadCfg(){
+    // localStorage is PER-DEVICE, so settings tuned on desktop don't reach the phone. A `?cfg=` link (made by
+    // "SEND TO PHONE") carries the whole config across devices: apply it AND persist it so it sticks on the phone.
+    try {
+      const enc = new URLSearchParams(location.search).get('cfg');
+      if (enc) { const c = JSON.parse(decodeURIComponent(escape(atob(enc.replace(/-/g,'+').replace(/_/g,'/'))))); if (c) { applyCfg(c); saveCfg(); return; } }
+    } catch(e){}
+    try { const c = JSON.parse(localStorage.getItem(KEY) || 'null'); if (c) applyCfg(c); } catch(e){}
+  }
+  // SEND TO PHONE — encode the full config into a link. Open it on the phone (text/AirDrop it to yourself) and
+  // the phone applies + saves it. Copies to clipboard; also shows the link so it can be long-pressed/selected.
+  const phoneBtn = document.getElementById('camPhone'), phoneOut = document.getElementById('camPhoneOut');
+  phoneBtn.addEventListener('click', () => {
+    const cfg = { ov: window.__camOv, hitbox: HITBOX_F, mob: window.__mob };
+    const enc = btoa(unescape(encodeURIComponent(JSON.stringify(cfg)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const url = location.origin + location.pathname + '?cfg=' + enc;
+    phoneOut.style.display = 'block'; phoneOut.textContent = url;
+    try { navigator.clipboard.writeText(url); } catch(e){}
+    const t = phoneBtn.textContent; phoneBtn.textContent = '✓ LINK COPIED — open it on your phone';
+    setTimeout(() => { phoneBtn.textContent = t; }, 1600);
+  });
   if (bc) bc.onmessage = e => {
     const m = e.data || {};
     if (m.freeze !== undefined && m.freeze !== dbgFreeze) { window.__freeze(m.freeze); if (m.freeze) speed = 0; }
