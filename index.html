@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784484226";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784484950";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -3430,10 +3430,12 @@ function render() {
       drawCar({ x: c.off, color: c.color, type: c.type, dist, model: c.model }, { sx: p.sx, sy: p.sy, sw: p.sw }, fog, H, true, fade, { sx: pf.sx, sy: pf.sy, sw: pf.sw });
       continue;
     }
-    // Fade IN from the horizon, and now fade OUT as the car reaches the camera: a flat billboard scaling up and
-    // sliding off the bottom read as the car "falling over like cardboard". Fading it out over the last stretch
-    // dissolves it instead. 0.8 at the ~400 crash range, so a car you're about to hit is still clearly there.
-    const fade = Math.min(1, (VIEW_AHEAD - dist) / 7000) * Math.min(1, Math.max(0, dist - 480) / 780);
+    // Fade IN from the horizon (world distance), and fade OUT by SCREEN position: dissolve over the last stretch
+    // before the car's base slides under the cockpit (dashTopY). A fixed WORLD distance (the old dist<480) was
+    // tuned for the tall desktop view; on the phone's SHORT road band it landed mid-road, so cars vanished /
+    // popped in plain sight. Screen-based makes it look the same on every device (fades right at the dash edge).
+    const _dcap = dashTopY || H;
+    const fade = Math.min(1, (VIEW_AHEAD - dist) / 7000) * Math.min(1, Math.max(0, (_dcap - p.sy)) / (H * 0.16));
     const col = carCol(c);
     // hide cars behind a hill crest — only clip when the hidden-line is actually
     // above the car (a hill in front); on flat road this is skipped (no cost)
