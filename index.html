@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784407345";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784419577";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2783,6 +2783,7 @@ function render() {
     const kCut = Math.log((2.5 / rstep) / span) / Math.log(1 - rstep);
     const FADE_ROWS = 1.2;                                   // ease in over ~1.2 row-steps of travel
     ctx.shadowBlur = glow;
+    let prevYhrR = Infinity;                                 // last row's HILL-displaced y (see crest-fold guard below)
     for (let i = 0; i < 90; i++) {
       const y = vy + span * Math.pow(1 - rstep, i + phase);
       if (y >= by) continue;
@@ -2790,6 +2791,14 @@ function render() {
       const t = (y - vy) / span;                             // 0 at horizon .. 1 at the bottom
       const xc = vx + (bx - vx) * t;                         // road centre at this depth
       const rhw = rwNear * t;                                // road half-width at this depth
+      // CREST-FOLD GUARD: rows march from the camera toward the horizon, so their displaced y must keep
+      // DECREASING. On a climb the far road lies OVER the crest and the hill should hide it, but the
+      // displacement maps those rows back DOWN onto the near side — they pile onto one screen line as a
+      // bright horizontal "shelf" (the step the road looked like it had). The moment a row stops rising,
+      // we're at the crest; stop drawing, so the hill cleanly occludes everything beyond it.
+      const yhr0 = hillYroad(xc, y);
+      if (yhr0 >= prevYhrR - 1) break;
+      prevYhrR = yhr0;
       // Fade the grid OUT into the horizon, the same way the menu does it (its .mGrid has a
       // `mask: linear-gradient(to bottom, transparent 0%, #000 14%...)`). Without this the rows bunch
       // up near the vanishing point and fuse into a solid pink slab instead of dissolving.
@@ -2800,8 +2809,7 @@ function render() {
       const al = ss(((kCut - (i + phase)) / FADE_ROWS));
       ctx.shadowColor = GRID_PINK;
       ctx.fillStyle = `rgba(${PINK_RGB},${al * PINK_ROW_A})`;   // menu .mGrid horizontals: rgba(255,70,205,.95)
-      const yhr = hillYroad(xc, y);                                       // road row rides the gameplay hill
-      ctx.fillRect(xc - rhw, yhr - 1, rhw * 2, 2);                        // road row ONLY — the ground
+      ctx.fillRect(xc - rhw, yhr0 - 1, rhw * 2, 2);                       // road row ONLY (yhr0 = hill-displaced) — the ground
     }                                                                     // gets its own finer grid below
 
     // ===== GROUND rows (cyan) — a SEPARATE, FINER grid than the road =====
@@ -2826,10 +2834,14 @@ function render() {
     ctx.clip('evenodd');
     ctx.lineWidth = 2; ctx.lineJoin = 'round';
     const XSTEP = Math.max(6, W / 90);                       // sampling step across the row
+    let prevYhrG = Infinity;                                 // crest-fold guard, same as the road rows
     for (let i = 0; i < 160; i++) {
       const y = vy + span * Math.pow(1 - rstepG, i + phaseG);
       if (y >= by) continue;
       if ((y - vy) * rstepG < 2.5) break;
+      const yhrG = hillYroad(0, y);                          // hillYroad ignores x, so one probe gives the row's displaced y
+      if (yhrG >= prevYhrG - 1) break;                       // over the crest -> stop (hill occludes the ground beyond)
+      prevYhrG = yhrG;
       const al = ss((kCutG - (i + phaseG)) / FADE_ROWS);     // same age-based fade as the road rows
       ctx.shadowColor = GRID_CYAN;                           // glow stays the saturated hue, like the art
       ctx.strokeStyle = `rgba(${softCyan(y)},${al})`;        // core is the cyan seen THROUGH .mGround
