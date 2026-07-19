@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784421541";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784423579";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2798,6 +2798,7 @@ function render() {
       // we're at the crest; stop drawing, so the hill cleanly occludes everything beyond it.
       const yhr0 = hillYroad(xc, y);
       if (yhr0 >= prevYhrR - 1) break;
+      const rowGap = prevYhrR - yhr0;              // screen px between this row and the previous drawn one
       prevYhrR = yhr0;
       // Fade the grid OUT into the horizon, the same way the menu does it (its .mGrid has a
       // `mask: linear-gradient(to bottom, transparent 0%, #000 14%...)`). Without this the rows bunch
@@ -2806,7 +2807,12 @@ function render() {
       // cutoff, easing to full over FADE_ROWS of travel. Because `phase` advances linearly with
       // distance, this ramp is linear in TIME — the row materialises gradually instead of snapping in.
       // It still reaches alpha 1 well inside the visible floor, so the lines keep the exact menu colours.
-      const al = ss(((kCut - (i + phase)) / FADE_ROWS));
+      // COMPRESSION FADE: as the road bends over a hill crest, consecutive rows crush toward the same
+      // screen line and pile into a bright horizontal "ladder" across the middle (the blue+pink stack the
+      // player kept seeing). Dim rows whose gap to the previous one has collapsed below ~3.5px, so the
+      // pile dissolves instead of stacking. Well-spaced rows (gap >= 3.5) are unaffected -> flat road is
+      // unchanged; the crest just fades out cleanly.
+      const al = ss(((kCut - (i + phase)) / FADE_ROWS)) * Math.min(1, rowGap / 3.5);
       ctx.shadowColor = GRID_PINK;
       ctx.fillStyle = `rgba(${PINK_RGB},${al * PINK_ROW_A})`;   // menu .mGrid horizontals: rgba(255,70,205,.95)
       ctx.fillRect(xc - rhw, yhr0 - 1, rhw * 2, 2);                       // road row ONLY (yhr0 = hill-displaced) — the ground
@@ -2841,8 +2847,10 @@ function render() {
       if ((y - vy) * rstepG < 2.5) break;
       const yhrG = hillYroad(0, y);                          // hillYroad ignores x, so one probe gives the row's displaced y
       if (yhrG >= prevYhrG - 1) break;                       // over the crest -> stop (hill occludes the ground beyond)
+      const rowGapG = prevYhrG - yhrG;                       // px to previous ground row
       prevYhrG = yhrG;
-      const al = ss((kCutG - (i + phaseG)) / FADE_ROWS);     // same age-based fade as the road rows
+      // same compression fade as the road rows: dissolve the cyan pile at the crest instead of stacking it
+      const al = ss((kCutG - (i + phaseG)) / FADE_ROWS) * Math.min(1, rowGapG / 3.5);
       ctx.shadowColor = GRID_CYAN;                           // glow stays the saturated hue, like the art
       ctx.strokeStyle = `rgba(${softCyan(y)},${al})`;        // core is the cyan seen THROUGH .mGround
       ctx.beginPath();
@@ -2954,7 +2962,13 @@ function render() {
     // is still BRIGHT — so the two edges met in a vivid cyan "V" pointing at the middle of the road (the
     // "blue lines in the middle"). Fading each edge to 0 at its own top end dissolves that join wherever
     // it lands; the pink road grid keeps its own visible edge, so the road boundary is still read.
-    ctx.shadowColor = GRID_CYAN; ctx.shadowBlur = 8; ctx.lineWidth = 2.5;
+    // EDGE COLOUR: PINK, not cyan. These lines mark the road boundary and converge to a point at the
+    // vanishing point / hill crest. When they were cyan, that convergence made a bright BLUE "V" in the
+    // middle of the road on every hill approach — the "blue lines in the middle" the player kept seeing.
+    // Fading the V wasn't enough. Colouring the edge the SAME pink family as the road grid means the road
+    // can never show blue: the boundary now reads as the hot outer edge of the pink road, cyan stays on
+    // the ground where it belongs.
+    ctx.shadowColor = GRID_PINK; ctx.shadowBlur = 8; ctx.lineWidth = 2.5;
     for (const s of [-1, 1]) {
       const xbEdge = bx + s * rwNear;                         // road edge at the near/bottom
       // Walk the edge from the NEAR end UP toward the horizon so it rides the gameplay hill like the road
@@ -2974,9 +2988,9 @@ function render() {
       if (pts.length < 2) continue;
       const a = pts[0], b = pts[pts.length - 1];               // a = near/bottom (bright), b = crest/horizon top (transparent)
       const g = ctx.createLinearGradient(a[0], a[1], b[0], b[1]);
-      g.addColorStop(0, 'rgba(191,244,255,0.95)');
-      g.addColorStop(0.65, 'rgba(191,244,255,0.42)');
-      g.addColorStop(1, 'rgba(191,244,255,0)');
+      g.addColorStop(0, 'rgba(255,190,235,0.95)');            // bright pink-white road edge (was cyan → made a blue V mid-road on hills)
+      g.addColorStop(0.65, 'rgba(255,170,225,0.42)');
+      g.addColorStop(1, 'rgba(255,170,225,0)');
       ctx.strokeStyle = g;
       ctx.beginPath();
       pts.forEach((p, i) => i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]));
