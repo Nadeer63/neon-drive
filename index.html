@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784483342";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784484226";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -8019,8 +8019,8 @@ requestAnimationFrame(frame);
     const cmd = 'neondrv/' + code + '/cmd', ack = 'neondrv/' + code + '/ack';
     const client = mqtt.connect(BROKER, { clientId: 'mac' + code, reconnectPeriod: 2000 });
     mac = { client, cmd };
-    client.on('connect', () => { client.subscribe(ack); showLiveQR(code); liveSendCfg(); });
-    client.on('message', (t) => { if (t === ack) liveStatus('✅ <b style="color:#39ff9e">PHONE CONNECTED</b> — drag any slider to change it live · press <b>M</b> to freeze/unfreeze the phone.<br><span style="opacity:.7">(keep this panel open)</span>'); });
+    client.on('connect', () => { client.subscribe(ack, { qos: 1 }); showLiveQR(code); liveSendCfg(); });
+    client.on('message', (t) => { if (t === ack) liveStatus('✅ <b style="color:#39ff9e">PHONE CONNECTED</b> — click this window, then WASD drives · <b>M</b> = free-drive (stop, then W to go).<br><span style="opacity:.7">(keep this panel open)</span>'); });
     client.on('error', () => {});
     liveBtn.textContent = '🔴 LIVE — stop';
   }
@@ -8032,14 +8032,16 @@ requestAnimationFrame(frame);
       + '<img src="' + qr + '" alt="QR" style="width:190px;height:190px;display:block;margin:4px auto;background:#fff;border-radius:8px">'
       + '<div style="font-size:9px;word-break:break-all;color:#8ff">…or open on phone:<br>' + url + '</div>');
   }
+  const PUB = { qos: 1 };   // at-least-once delivery — the public broker drops/delays QoS-0, which lost key presses
   function liveSendCfg(){ if (!mac) return; const now = performance.now(); if (now - _liveT < 90) return; _liveT = now;   // throttle
-    try { mac.client.publish(mac.cmd, JSON.stringify({ cfg: { ov: window.__camOv, hitbox: HITBOX_F, mob: window.__mob } })); } catch(e){} }
-  function liveSendPark(v){ if (!mac) return; try { mac.client.publish(mac.cmd, JSON.stringify({ park: v })); } catch(e){} }
+    try { mac.client.publish(mac.cmd, JSON.stringify({ cfg: { ov: window.__camOv, hitbox: HITBOX_F, mob: window.__mob } }), PUB); } catch(e){} }
+  function liveSendPark(v){ if (!mac) return; try { mac.client.publish(mac.cmd, JSON.stringify({ park: v }), PUB); } catch(e){} }
   liveBtn.addEventListener('click', () => { mac ? stopLiveMac() : startLiveMac(); });
   // WASD on the MAC = drive the phone's car (W fwd / S back-brake / A left / D right). Publish the full 4-key
-  // state on any change so a dropped packet self-corrects; the phone replays it through setKey().
+  // state on any change; a HEARTBEAT also re-sends it ~3x/sec so a dropped packet self-heals within a blink.
   const drive = { KeyW: false, KeyA: false, KeyS: false, KeyD: false };
-  function liveSendDrive(){ if (!mac) return; try { mac.client.publish(mac.cmd, JSON.stringify({ drive })); } catch(e){} }
+  function liveSendDrive(){ if (!mac) return; try { mac.client.publish(mac.cmd, JSON.stringify({ drive }), PUB); } catch(e){} }
+  setInterval(() => { if (mac) liveSendDrive(); }, 300);   // heartbeat keeps the phone in sync even if a key packet is lost
   window.addEventListener('keydown', e => {   // (only while a live session is up)
     if (!mac) return;
     // M = the desktop's FREE-DRIVE toggle (parked): the phone's car stops, then W/S/A/D drive it manually.
@@ -8056,25 +8058,22 @@ requestAnimationFrame(frame);
     const cmd = 'neondrv/' + code + '/cmd', ack = 'neondrv/' + code + '/ack';
     const client = mqtt.connect(BROKER, { clientId: 'ph' + code, reconnectPeriod: 2000 });
     const badge = document.createElement('div');
-    badge.style.cssText = 'position:fixed;left:50%;top:8px;transform:translateX(-50%);z-index:2147483647;font:11px monospace;color:#0a1420;background:#39ff9e;padding:3px 10px;border-radius:10px;pointer-events:none';
+    badge.style.cssText = 'position:fixed;left:50%;top:8px;transform:translateX(-50%);z-index:2147483647;font:11px monospace;color:#0a1420;background:#39ff9e;padding:3px 10px;border-radius:10px;pointer-events:none;white-space:nowrap';
     badge.textContent = '🔴 LIVE — controlled from Mac'; document.body.appendChild(badge);
-    client.on('connect', () => { client.subscribe(cmd); client.publish(ack, 'hi'); });
-    setInterval(() => { try { client.publish(ack, 'hi'); } catch(e){} }, 4000);   // re-announce so a Mac that opens later finds us
+    // Live status readout so it's obvious what the car is doing (screenshot this if it won't move).
+    setInterval(() => { try { const K = (keys.up?'W':'·')+(keys.down?'S':'·')+(keys.left?'A':'·')+(keys.right?'D':'·');
+      badge.textContent = '🔴 ' + (state === 'play' ? '▶' : state) + ' · ' + (parked ? 'FREE-DRIVE' : 'auto') + ' · spd ' + Math.round(speed || 0) + ' · ' + K; } catch(e){} }, 200);
+    const startIfMenu = () => { try { if (state === 'menu') { const b = document.getElementById('arcadeBtn') || document.getElementById('startBtn'); if (b) b.click(); } } catch(e){} };
+    const setPark = v => { if (v) startIfMenu(); if (typeof dbgFreeze !== 'undefined' && dbgFreeze) window.__freeze(false); parked = !!v; };   // never leave it hard-frozen
+    client.on('connect', () => { client.subscribe(cmd, { qos: 1 }); client.publish(ack, 'hi', { qos: 1 }); });
+    setInterval(() => { try { client.publish(ack, 'hi', { qos: 1 }); } catch(e){} }, 4000);   // re-announce so a Mac that opens later finds us
     client.on('message', (t, msg) => { try { const m = JSON.parse(msg.toString());
       if (m.cfg) { applyCfg(m.cfg); clearTimeout(_phSaveT); _phSaveT = setTimeout(saveCfg, 800); }   // apply live, persist a beat later
-      if (m.park !== undefined) {   // Mac M = desktop free-drive (parked): car stops, then W/S/A/D drive it manually
-        try { if (state === 'menu' && m.park) document.getElementById('arcadeBtn').click(); } catch(e){}
-        parked = m.park;
-        badge.textContent = m.park ? '⏸ FREE-DRIVE — W fwd · S back · A/D steer' : '🔴 LIVE — controlled from Mac';
-      }
-      if (m.freeze !== undefined) { window.__freeze(m.freeze); if (m.freeze) speed = 0; }   // (legacy full freeze, still honoured)
+      if (m.park !== undefined) setPark(m.park);       // Mac M = free-drive (parked): car stops, then W/S/A/D drive it
+      if (m.freeze !== undefined) setPark(m.freeze);   // OLD Mac builds send {freeze}; treat as free-drive too (never hard-freeze the car)
       if (m.drive) {   // Mac WASD -> drive this car (setKey maps KeyW/A/S/D to keys.up/left/down/right)
-        const anyDown = Object.keys(m.drive).some(k => m.drive[k]);
-        // If a drive key comes in while we're on the MENU, START a game so WASD can actually drive.
-        if (anyDown) { try { if (state === 'menu') document.getElementById('arcadeBtn').click(); } catch(e){} }
+        if (Object.keys(m.drive).some(k => m.drive[k])) startIfMenu();   // a key came in on the menu -> start a game so it can drive
         for (const code in m.drive) setKey(code, m.drive[code]);
-        const L = m.drive.KeyA, R = m.drive.KeyD, U = m.drive.KeyW, D = m.drive.KeyS;   // live feedback
-        if (anyDown) badge.textContent = '🕹 ' + (U ? '↑' : '') + (D ? '↓' : '') + (L ? '←' : '') + (R ? '→' : '');
       }
     } catch(e){} });
   }
