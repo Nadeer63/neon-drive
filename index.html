@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784474498";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784474846";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -864,7 +864,7 @@ window.__B="1784474498";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
     padding: 14px calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
   }
   #touchControls .sbtn {
-    pointer-events: auto; flex: 0 0 auto; width: var(--btnSize, min(44vw, 230px)); aspect-ratio: 1 / 1; max-height: 100%;
+    pointer-events: auto; flex: 0 0 auto; width: var(--btnW, min(44vw, 230px)); height: var(--btnH, min(44vw, 230px));
     display: flex; align-items: center; justify-content: center;
     font-family: 'Aldrich', monospace; font-size: clamp(34px, 13vw, 88px); line-height: 1; font-weight: bold;
     color: #00f0ff; background: linear-gradient(180deg, rgba(12,7,34,.92), rgba(24,5,46,.92));
@@ -911,7 +911,8 @@ window.__B="1784474498";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <div style="margin:9px 0 3px;border-top:1px solid rgba(53,231,255,.35);padding-top:6px;color:#8ff">📱 MOBILE</div>
   <label style="display:block;margin:6px 0;color:#8ff">GAME RESOLUTION <b id="camVRes"></b><input id="camSRes" type="range" min="0.30" max="2.00" step="0.05" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">GAME HEIGHT (tallness) <b id="camVTall"></b><input id="camSTall" type="range" min="0.60" max="2.40" step="0.05" style="width:100%"></label>
-  <label style="display:block;margin:6px 0;color:#8ff">BUTTONS SIZE <b id="camVBs"></b><input id="camSBs" type="range" min="80" max="300" step="4" style="width:100%"></label>
+  <label style="display:block;margin:6px 0;color:#8ff">BUTTONS WIDTH <b id="camVBs"></b><input id="camSBs" type="range" min="70" max="320" step="4" style="width:100%"></label>
+  <label style="display:block;margin:6px 0;color:#8ff">BUTTONS HEIGHT <b id="camVBh"></b><input id="camSBh" type="range" min="70" max="380" step="4" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS SPREAD <b id="camVBg"></b><input id="camSBg" type="range" min="0" max="240" step="4" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS UP ↑ ↓ <b id="camVBy"></b><input id="camSBy" type="range" min="-360" max="30" step="4" style="width:100%"></label>
   <button id="camStop" style="margin-top:4px;width:100%;font:12px monospace;color:#39ff9e;background:rgba(0,0,0,.35);border:1px solid #39ff9e;border-radius:6px;padding:6px">⏸ STAND STILL</button>
@@ -7827,34 +7828,37 @@ requestAnimationFrame(frame);
   const hitS = document.getElementById('camS6'), hitV = document.getElementById('camV6');
   // ---- MOBILE extras: game resolution + steer-button placement (GLOBAL, not per-orientation) ----
   const resS = document.getElementById('camSRes'), resV = document.getElementById('camVRes');
-  const bsS = document.getElementById('camSBs'), bsV = document.getElementById('camVBs');
+  const bsS = document.getElementById('camSBs'), bsV = document.getElementById('camVBs');   // button WIDTH
+  const bhS = document.getElementById('camSBh'), bhV = document.getElementById('camVBh');   // button HEIGHT
   const bgS = document.getElementById('camSBg'), bgV = document.getElementById('camVBg');
   const byS = document.getElementById('camSBy'), byV = document.getElementById('camVBy');
   const tallS = document.getElementById('camSTall'), tallV = document.getElementById('camVTall');
   const RS_DEF = (('ontouchstart' in window) || navigator.maxTouchPoints > 0) ? 0.8 : Math.min(window.devicePixelRatio || 1, 1.5);
-  window.__mob = window.__mob || { res: 0, bs: 172, bg: 22, by: 0, tall: 1 };   // res 0 = AUTO (adaptive); tall 1 = ~square
+  window.__mob = window.__mob || { res: 0, bs: 172, bh: 172, bg: 22, by: 0, tall: 1 };   // res 0 = AUTO; bs=width bh=height
   if (window.__mob.tall == null) window.__mob.tall = 1;                          // migrate older saved configs
+  if (window.__mob.bh == null) window.__mob.bh = window.__mob.bs || 172;         // migrate: default height = width (square)
   function applyMob(){
     const m = window.__mob;
     resManual = m.res > 0 ? m.res : 0;
     const rs = document.documentElement.style;
-    rs.setProperty('--btnSize', m.bs + 'px'); rs.setProperty('--btnGap', m.bg + 'px'); rs.setProperty('--btnY', m.by + 'px');
+    rs.setProperty('--btnW', m.bs + 'px'); rs.setProperty('--btnH', m.bh + 'px');
+    rs.setProperty('--btnGap', m.bg + 'px'); rs.setProperty('--btnY', m.by + 'px');
     resize();
   }
   function syncMob(){
     const m = window.__mob;
-    resS.value = m.res; bsS.value = m.bs; bgS.value = m.bg; byS.value = m.by; tallS.value = m.tall;
+    resS.value = m.res; bsS.value = m.bs; bhS.value = m.bh; bgS.value = m.bg; byS.value = m.by; tallS.value = m.tall;
     const eff = m.res > 0 ? m.res : RS_DEF;
     const bx = window.__box || { w: innerWidth, h: innerHeight };
     resV.textContent = (m.res > 0 ? m.res.toFixed(2) + '×' : 'AUTO') + '  (' + Math.round(bx.w * eff) + '×' + Math.round(bx.h * eff) + ')';
-    bsV.textContent = m.bs + 'px'; bgV.textContent = m.bg + 'px'; byV.textContent = m.by + 'px';
+    bsV.textContent = m.bs + 'px'; bhV.textContent = m.bh + 'px'; bgV.textContent = m.bg + 'px'; byV.textContent = m.by + 'px';
     tallV.textContent = (+m.tall).toFixed(2) + '×  (' + Math.round(bx.h) + 'px)';
   }
   function pushMob(){
-    window.__mob = { res: +resS.value, bs: +bsS.value, bg: +bgS.value, by: +byS.value, tall: +tallS.value };
+    window.__mob = { res: +resS.value, bs: +bsS.value, bh: +bhS.value, bg: +bgS.value, by: +byS.value, tall: +tallS.value };
     applyMob(); syncMob(); broadcast();
   }
-  [resS, bsS, bgS, byS, tallS].forEach(s => { s.addEventListener('input', pushMob); s.addEventListener('change', pushMob); });
+  [resS, bsS, bhS, bgS, byS, tallS].forEach(s => { s.addEventListener('input', pushMob); s.addEventListener('change', pushMob); });
   // FIELD OF VIEW is shown on the game's own 0-100 scale (0 = tightest/most zoomed, 100 = widest), not as the
   // raw projection depth. Same mapping the settings slider always used: CAM_DEPTH = 1.2 - fov/100*0.7.
   const depthOf = fov => 1.2 - (fov / 100) * 0.7;
