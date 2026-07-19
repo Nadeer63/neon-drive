@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784476583";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784477002";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -230,7 +230,9 @@ window.__B="1784476583";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
      follow. A dark backing on #overlay fills the thin sky gap that a <1 (farther) scale opens at the top. */
   body.arcadeScene #overlay .mBg,
   body.arcadeScene #overlay .mBgFg { transform: scale(var(--citySc, 1)); transform-origin: 50% 52%; }
-  body.arcadeScene #overlay { background-color: #140a29; }
+  /* Backing shown around the backdrop when CITY+SUN is scaled below 1 (whole skyline visible, distant): a sky-like
+     radial glow so the shrunk backdrop blends into it instead of sitting on a flat rectangle. */
+  body.arcadeScene #overlay { background: radial-gradient(ellipse 120% 78% at 50% 40%, #2a1247 0%, #160b2c 52%, #0c0620 100%); }
   /* The pulled-back bgs have their own small distant baked sun, so the old cut-out DISC (.mSunFront) stays
      hidden — it would ghost a second sun over the painted one.
      The audio-spectrum RING (.mSunViz) is back on: it draws bars around the sun, not a disc over it, so it
@@ -918,7 +920,7 @@ window.__B="1784476583";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <div style="margin:9px 0 3px;border-top:1px solid rgba(53,231,255,.35);padding-top:6px;color:#8ff">📱 MOBILE</div>
   <label style="display:block;margin:6px 0;color:#8ff">GAME RESOLUTION <b id="camVRes"></b><input id="camSRes" type="range" min="0.30" max="2.00" step="0.05" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">GAME HEIGHT (tallness) <b id="camVTall"></b><input id="camSTall" type="range" min="0.60" max="2.40" step="0.05" style="width:100%"></label>
-  <label style="display:block;margin:6px 0;color:#ffcf8f">🌆 CITY + SUN — closer / farther <b id="camVCity"></b><input id="camSCity" type="range" min="0.80" max="1.60" step="0.02" style="width:100%"></label>
+  <label style="display:block;margin:6px 0;color:#ffcf8f">🌆 CITY + SUN — closer / farther <b id="camVCity"></b><input id="camSCity" type="range" min="0.35" max="1.80" step="0.02" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS WIDTH <b id="camVBs"></b><input id="camSBs" type="range" min="70" max="320" step="4" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS TALLNESS ↕ (longer/shorter) <b id="camVBh"></b><input id="camSBh" type="range" min="60" max="500" step="4" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS SPREAD <b id="camVBg"></b><input id="camSBg" type="range" min="0" max="240" step="4" style="width:100%"></label>
