@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784587776";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784589057";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -923,7 +923,7 @@ window.__B="1784587776";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <div style="margin:9px 0 3px;border-top:1px solid rgba(53,231,255,.35);padding-top:6px;color:#8ff">📱 MOBILE</div>
   <label style="display:block;margin:6px 0;color:#8ff">GAME RESOLUTION <b id="camVRes"></b><input id="camSRes" type="range" min="0.25" max="2.00" step="0.05" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">GAME HEIGHT (tallness) <b id="camVTall"></b><input id="camSTall" type="range" min="0.60" max="2.40" step="0.05" style="width:100%"></label>
-  <label style="display:block;margin:6px 0;color:#ffcf8f">🌆 CITY + SUN — closer / farther (whole skyline) <b id="camVCity"></b><input id="camSCity" type="range" min="0.40" max="1.80" step="0.02" style="width:100%"></label>
+  <label style="display:block;margin:6px 0;color:#ffcf8f">🌆 CITY + SUN — closer / farther (whole skyline) <b id="camVCity"></b><input id="camSCity" type="range" min="0.65" max="1.80" step="0.02" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS WIDTH <b id="camVBs"></b><input id="camSBs" type="range" min="70" max="320" step="4" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS TALLNESS ↕ (longer/shorter) <b id="camVBh"></b><input id="camSBh" type="range" min="60" max="500" step="4" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS SPREAD <b id="camVBg"></b><input id="camSBg" type="range" min="0" max="240" step="4" style="width:100%"></label>
@@ -1270,7 +1270,10 @@ function resize() {
   // art's floor drifts off the game horizon (double-floor). cityZP is clamped so Z stays < 0.9 (the formula
   // blows up as Z -> 1). LANDSCAPE uses a plain transform instead (--citySc), so it keeps the base 62%/Z.
   const cityF = (window.__mob && window.__mob.city) || 1;
-  const cityZP = Math.max(0.30, Math.min(1.45, cityF));   // portrait background-size multiplier (Z stays 0.19..0.90)
+  // FLOOR at 0.65: below this the backdrop (background-size: auto 62%*Z) shrinks smaller than the viewport, so it
+  // becomes a small centred image framed by empty flat colour = the "sky not completed" bug. At 0.65 the whole
+  // skyline + sun still show with a complete sky; pulling back further only shrank it into a box, so we stop here.
+  const cityZP = Math.max(0.65, Math.min(1.45, cityF));   // portrait background-size multiplier (Z stays 0.40..0.90)
   document.documentElement.style.setProperty('--cityZ', cityZP.toFixed(3));
   document.documentElement.style.setProperty('--citySc', cityF.toFixed(3));   // landscape transform scale
   const BG_Z = 0.62 * cityZP, BG_F = 0.535, hzTarget = 0.5;
@@ -3463,7 +3466,12 @@ function render() {
     // road, so cars started fading mid-road and read as "fading too quick"). Cars now stay full until they're
     // near the dash, where they dissolve as the cockpit takes over.
     const _dcap = dashTopY || H;
-    const fade = Math.min(1, (VIEW_AHEAD - dist) / 7000) * Math.min(1, Math.max(0, (_dcap - p.sy)) / Math.max(26, H * 0.055));
+    // Keep cars FULL right up to the cockpit top, then dissolve over the band BELOW it (where the dash occludes the
+    // fade). The old band ended AT _dcap, so cars hit alpha 0 a band-height ABOVE the dash and vanished in open road
+    // ("fade out too quick"). Shifting it down by the band means the fade lands under the cockpit -> cars stay solid
+    // until they slide under the dash.
+    const _fb = Math.max(30, H * 0.07);
+    const fade = Math.min(1, (VIEW_AHEAD - dist) / 7000) * Math.min(1, Math.max(0, (_dcap + _fb - p.sy)) / _fb);
     const col = carCol(c);
     // hide cars behind a hill crest — only clip when the hidden-line is actually
     // above the car (a hill in front); on flat road this is skipped (no cost)
