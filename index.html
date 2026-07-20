@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784516215";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784584756";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -869,10 +869,10 @@ window.__B="1784516215";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   #touchControls { display: none; }
   body.crashed #touchControls { display: none !important; }   /* hide the steer buttons on the crash screen */
   body.boxedGame #touchControls {
-    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 16;   /* NO height:var(--gvB) — that tied the buttons to the bottom gap, so GAME HEIGHT moved them */
+    display: flex; position: fixed; left: 0; right: 0; top: var(--gBoxBot, 60%); bottom: 0; z-index: 16;
     gap: var(--btnGap, 22px); box-sizing: border-box; pointer-events: none;
-    align-items: flex-end; justify-content: center;   /* anchored to the VIEWPORT BOTTOM, independent of GAME HEIGHT */
-    transform: translateY(var(--btnY, 0px));          /* CAM panel: BUTTONS UP/DOWN — negative lifts them off the bottom */
+    align-items: flex-start; justify-content: center;   /* anchored right BELOW the game box (--gBoxBot), NOT the viewport bottom — so Safari and the home-screen PWA (taller viewport, no address bar) place the buttons identically */
+    transform: translateY(var(--btnY, 0px));            /* CAM panel: BUTTONS UP/DOWN — negative lifts them toward the box, positive drops them into the black space (fraction of WIDTH, height-independent) */
     padding: 14px calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
   }
   #touchControls .sbtn {
@@ -927,7 +927,7 @@ window.__B="1784516215";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS WIDTH <b id="camVBs"></b><input id="camSBs" type="range" min="70" max="320" step="4" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS TALLNESS ↕ (longer/shorter) <b id="camVBh"></b><input id="camSBh" type="range" min="60" max="500" step="4" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS SPREAD <b id="camVBg"></b><input id="camSBg" type="range" min="0" max="240" step="4" style="width:100%"></label>
-  <label style="display:block;margin:6px 0;color:#8ff">BUTTONS UP ↑ ↓ <b id="camVBy"></b><input id="camSBy" type="range" min="-360" max="30" step="4" style="width:100%"></label>
+  <label style="display:block;margin:6px 0;color:#8ff">BUTTONS ↑ / ↓ (below box) <b id="camVBy"></b><input id="camSBy" type="range" min="-60" max="460" step="4" style="width:100%"></label>
   <button id="camStop" style="margin-top:4px;width:100%;font:12px monospace;color:#39ff9e;background:rgba(0,0,0,.35);border:1px solid #39ff9e;border-radius:6px;padding:6px">⏸ STAND STILL</button>
   <div id="camOut" style="margin-top:7px;padding:6px;background:rgba(0,0,0,.6);border-radius:6px;color:#39ff9e;user-select:all;-webkit-user-select:all"></div>
   <div style="display:flex;gap:6px;margin-top:7px">
@@ -1218,6 +1218,7 @@ function resize() {
   const _rs = document.documentElement.style;
   _rs.setProperty('--gvL', bx0 + 'px'); _rs.setProperty('--gvT', by0 + 'px');
   _rs.setProperty('--gvR', (Wvp - bx0 - bw) + 'px'); _rs.setProperty('--gvB', (Hvp - by0 - bh) + 'px');
+  _rs.setProperty('--gBoxBot', (by0 + bh) + 'px');   // bottom edge of the game box from the viewport top — the steer buttons anchor HERE (not the viewport bottom), so they land identically in Safari and the home-screen PWA
   window.__box = { x: bx0, y: by0, w: bw, h: bh, on: boxed };
   W = bw; H = bh;
   PW = Math.min(W, H * 1.8);   // never let the horizontal field stretch wider than ~1.8:1 (stops landscape-phone over-zoom)
@@ -1275,7 +1276,7 @@ function resize() {
     rsd.setProperty('--btnW', Math.round((_mb.bs != null ? _mb.bs : 0.44) * Wvp) + 'px');
     rsd.setProperty('--btnH', Math.round((_mb.bh != null ? _mb.bh : 0.44) * Wvp) + 'px');
     rsd.setProperty('--btnGap', Math.round((_mb.bg != null ? _mb.bg : 0.055) * Wvp) + 'px');
-    rsd.setProperty('--btnY', Math.round((_mb.by != null ? _mb.by : 0) * Hvp) + 'px');
+    rsd.setProperty('--btnY', Math.round((_mb.by != null ? _mb.by : 0) * Wvp) + 'px');   // offset BELOW the box, as a fraction of WIDTH (height-independent, so Safari == home-screen PWA)
   }
   if (resManual > 0) renderScale = resManual;   // CAM panel locked GAME RESOLUTION (else the adaptive loop owns it)
   cv.width = Math.round(W * renderScale); cv.height = Math.round(H * renderScale);
@@ -7909,6 +7910,10 @@ requestAnimationFrame(frame);
       m.bs = frac(m.bs, 0.44, 400); m.bh = frac(m.bh, m.bs, 400); m.bg = frac(m.bg, 0.055, 400); m.by = frac(m.by, 0, 850);
       m.rel = 1;
     }
+    // rel 2: `by` changed meaning — it used to be a fraction of viewport HEIGHT translating the buttons UP off the
+    // viewport bottom; it's now a fraction of WIDTH offsetting them DOWN from the game-box bottom. Old values are
+    // meaningless (and had the opposite sign), so reset to 0 = buttons sit right under the box on every device.
+    if (m.rel < 2) { m.by = 0; m.rel = 2; }
     return m;
   }
   mobDefaults(window.__mob);
@@ -7922,12 +7927,12 @@ requestAnimationFrame(frame);
     const m = mobDefaults(window.__mob);
     const W = innerWidth || 400, H = innerHeight || 850;               // sliders show px FOR THE CURRENT screen (stored as fractions underneath)
     resS.value = m.res > 0 ? m.res : 0.25;   // 0.25 = the slider's leftmost "AUTO" stop (min); a real lock is >=0.30
-    bsS.value = Math.round(m.bs * W); bhS.value = Math.round(m.bh * W); bgS.value = Math.round(m.bg * W); byS.value = Math.round(m.by * H);
+    bsS.value = Math.round(m.bs * W); bhS.value = Math.round(m.bh * W); bgS.value = Math.round(m.bg * W); byS.value = Math.round(m.by * W);
     tallS.value = m.tall; cityS.value = m.city;
     const eff = m.res > 0 ? m.res : RS_DEF;
     const bx = window.__box || { w: innerWidth, h: innerHeight };
     resV.textContent = (m.res > 0 ? m.res.toFixed(2) + '×' : 'AUTO') + '  (' + Math.round(bx.w * eff) + '×' + Math.round(bx.h * eff) + ')';
-    bsV.textContent = Math.round(m.bs * W) + 'px'; bhV.textContent = Math.round(m.bh * W) + 'px'; bgV.textContent = Math.round(m.bg * W) + 'px'; byV.textContent = Math.round(m.by * H) + 'px';
+    bsV.textContent = Math.round(m.bs * W) + 'px'; bhV.textContent = Math.round(m.bh * W) + 'px'; bgV.textContent = Math.round(m.bg * W) + 'px'; byV.textContent = Math.round(m.by * W) + 'px';
     tallV.textContent = (+m.tall).toFixed(2) + '×  (' + Math.round(bx.h) + 'px)';
     cityV.textContent = (+m.city).toFixed(2) + '×' + (m.city > 1 ? ' (closer)' : m.city < 1 ? ' (farther)' : '');
   }
@@ -7935,7 +7940,7 @@ requestAnimationFrame(frame);
     const W = innerWidth || 400, H = innerHeight || 850;
     const res = +resS.value < 0.30 ? 0 : +resS.value;   // leftmost stop = AUTO (0), so nudging other sliders can't accidentally lock a low resolution
     // store as FRACTIONS of the live screen so the SAME look transfers to any phone size
-    window.__mob = { res, bs: +bsS.value / W, bh: +bhS.value / W, bg: +bgS.value / W, by: +byS.value / H, tall: +tallS.value, city: +cityS.value, rel: 1 };
+    window.__mob = { res, bs: +bsS.value / W, bh: +bhS.value / W, bg: +bgS.value / W, by: +byS.value / W, tall: +tallS.value, city: +cityS.value, rel: 2 };
     applyMob(); syncMob(); broadcast();
   }
   [resS, bsS, bhS, bgS, byS, tallS, cityS].forEach(s => { s.addEventListener('input', pushMob); s.addEventListener('change', pushMob); });
