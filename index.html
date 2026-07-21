@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784653453";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784653977";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -8133,6 +8133,22 @@ requestAnimationFrame(frame);
     applyMob(); syncMob(); broadcast();
   }
   [resS, bsS, bhS, bgS, byS, tallS, cityS, cnS, cmS, cfS, cszS, clfS, fadeS, roadS].forEach(s => { s.addEventListener('input', pushMob); s.addEventListener('change', pushMob); });
+  // ARROW STEPPERS: flank every CAM slider with ◄ ► tap buttons so values can be nudged precisely on a phone
+  // (dragging a thin slider is fiddly). Deferred so every slider's input/change handlers are attached first.
+  setTimeout(() => { try {
+    document.querySelectorAll('#camPanel input[type=range]').forEach(inp => {
+      if (inp.dataset.arrowed) return; inp.dataset.arrowed = '1';
+      const fire = () => { inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true })); };
+      const mk = (txt, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = txt;
+        b.style.cssText = 'flex:0 0 auto;width:36px;font:bold 18px monospace;color:#0a1420;background:#35e7ff;border:none;border-radius:6px;padding:6px 0;touch-action:manipulation;cursor:pointer;-webkit-tap-highlight-color:transparent';
+        b.addEventListener('click', e => { e.preventDefault(); fn(); }); return b; };
+      const wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:2px';
+      inp.parentNode.insertBefore(wrap, inp);
+      wrap.appendChild(mk('◄', () => { inp.stepDown(); fire(); }));
+      inp.style.flex = '1'; inp.style.minWidth = '0'; wrap.appendChild(inp);
+      wrap.appendChild(mk('►', () => { inp.stepUp(); fire(); }));
+    });
+  } catch(e){} }, 0);
   // FIELD OF VIEW is shown on the game's own 0-100 scale (0 = tightest/most zoomed, 100 = widest), not as the
   // raw projection depth. Same mapping the settings slider always used: CAM_DEPTH = 1.2 - fov/100*0.7.
   const depthOf = fov => 1.2 - (fov / 100) * 0.7;
