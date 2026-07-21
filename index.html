@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784663502";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784664498";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2115,10 +2115,11 @@ function update(dt) {
     const _fromBehind = _prevPos < c.z;
     const _hit = (rearHitOnly ? _rearApproach : _sweptHit) && _fromBehind;
     if (trafficClear <= 0 && !(trafficThin > 0 && c.__hide) && !c.ramp && _hit && Math.abs(c.x - playerX) < 0.34 * HITBOX_F * _hs && playerY < 650) {
-      // Kick off a smooth camera dolly-back so the car you hit eases up into view on the crash screen (a hard snap
-      // read as the view "zooming"). The ease runs in frame() while busted; `state==='busted'` holds traffic at full
-      // alpha (see the fade in render) so the car doesn't fade out.
-      if (!parked) { crashFromZ = position; crashTargetZ = c.z - 900; crashPull = 0; }
+      // SNAP the camera straight to the reveal distance (car at ~900 ahead) the instant you hit. The old animated
+      // dolly eased the camera back over 0.45s, which made the hit car RISE UP from behind the dashboard into view —
+      // that reveal motion read as the car "bouncing / fading out then in". A static reveal (no ease) shows the car
+      // sitting still where you hit it. `state==='busted'` holds traffic at full alpha (see the fade in render).
+      if (!parked) { position = c.z - 900; crashPull = 1; }
       crash();
       if (!parked && !dbgNoCrash) return;
     }
