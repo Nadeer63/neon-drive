@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784652324";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784652859";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2002,7 +2002,8 @@ function update(dt) {
   const keyDir = (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
   const btnActive = btnL || btnR;                         // on-screen retro steer buttons (portrait box)
   const onTouch = touchActive || btnActive;
-  const dir = btnActive ? ((btnR ? 1 : 0) - (btnL ? 1 : 0))   // buttons win over every other input
+  const dir = window.__liveControlled ? keyDir           // remote (Mac WASD) wins while this phone is live-controlled — local gyro/touch must NOT override it
+            : btnActive ? ((btnR ? 1 : 0) - (btnL ? 1 : 0))   // buttons win over every other input
             : (gyroEnabled ? gyroDir : (touchActive ? touchSteer : (padActive ? padSteer : keyDir)));
   const maxVX = (onTouch ? 3.6 : 3.1) * (0.7 + 0.3 * (speed / MAX_SPEED)) * STEER_SENS;   // STEER_SENS = Settings sensitivity
   const targetVX = dir * maxVX;
@@ -8303,10 +8304,17 @@ requestAnimationFrame(frame);
     const badge = document.createElement('div');
     badge.style.cssText = 'position:fixed;left:50%;top:8px;transform:translateX(-50%);z-index:2147483647;font:11px monospace;color:#0a1420;background:#39ff9e;padding:3px 10px;border-radius:10px;pointer-events:none;white-space:nowrap';
     badge.textContent = '🔴 LIVE — controlled from Mac'; document.body.appendChild(badge);
+    window.__liveControlled = true;   // remote input takes priority (see the dir/steer logic in update())
+    // hide the CAM/settings panels so the phone SHOWS the game the Mac is driving (else it runs behind the open panel)
+    const closePanels = () => { try {
+      const cp = document.getElementById('camPanel'); if (cp) cp.style.display = 'none';
+      const st = document.getElementById('settings'); if (st) st.classList.add('hidden');
+    } catch(e){} };
+    closePanels();
     // Live status readout so it's obvious what the car is doing (screenshot this if it won't move).
     const iv1 = setInterval(() => { try { const K = (keys.up?'W':'·')+(keys.down?'S':'·')+(keys.left?'A':'·')+(keys.right?'D':'·');
       badge.textContent = '🔴 ' + (state === 'play' ? '▶' : state) + ' · ' + (parked ? 'FREE-DRIVE' : 'auto') + ' · spd ' + Math.round(speed || 0) + ' · ' + K; } catch(e){} }, 200);
-    const startIfMenu = () => { try { if (state === 'menu') { const b = document.getElementById('arcadeBtn') || document.getElementById('startBtn'); if (b) b.click(); } } catch(e){} };
+    const startIfMenu = () => { try { closePanels(); if (state === 'menu') { const b = document.getElementById('arcadeBtn') || document.getElementById('startBtn'); if (b) b.click(); } } catch(e){} };
     const setPark = v => { if (v) startIfMenu(); if (typeof dbgFreeze !== 'undefined' && dbgFreeze) window.__freeze(false); parked = !!v; };   // never leave it hard-frozen
     client.on('connect', () => { client.subscribe(cmd, { qos: 1 }); client.publish(ack, 'hi', { qos: 1 }); });
     const iv2 = setInterval(() => { try { client.publish(ack, 'hi', { qos: 1 }); } catch(e){} }, 4000);   // re-announce so a Mac that opens later finds us
