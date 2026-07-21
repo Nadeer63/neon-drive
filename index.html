@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784598974";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784599684";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -197,6 +197,22 @@ window.__B="1784598974";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
      the top — and that is independent of screen height, so it holds on every phone. On a 15 Pro it renders
      1426x796: horizon lands on 426 = the game's horizon exactly, and the city is 1.5x bigger than it is in
      landscape, so it reads close instead of distant. */
+  /* FULL-SKY GALAXY behind the arcade backdrop: a nebula/deep-space base on #overlay + the twinkling .mStars field,
+     so when CITY+SUN is pulled back the surrounding sky is stars+nebula (not a flat block). The city+sun art (.mBg)
+     and road canvas sit on top. */
+  body.arcadeScene #overlay {
+    /* base matched to the backdrop art's own top-sky (#160335) so there's NO seam where the art's top edge meets
+       the galaxy — the nebula/stars just continue the same sky upward. */
+    background:
+      radial-gradient(58% 42% at 24% 22%, rgba(126,42,168,.30), transparent 72%),
+      radial-gradient(52% 44% at 80% 30%, rgba(40,96,168,.24), transparent 72%),
+      radial-gradient(46% 40% at 56% 14%, rgba(196,44,132,.20), transparent 72%),
+      linear-gradient(180deg, #160334 0%, #1a0638 55%, #210b42 100%);
+  }
+  body.arcadeScene #overlay .mStars {
+    display: block !important; z-index: 0; top: 0; left: 0; right: 0; height: 100%;   /* fill the whole sky, behind the .mBg image (z1) */
+    -webkit-mask: linear-gradient(180deg, #000 56%, transparent 86%); mask: linear-gradient(180deg, #000 56%, transparent 86%);
+  }
   body.arcadeScene #overlay .mBg {
     background-image: url("assets/menu_bg_land_arcade.png");
     /* Pulled BACK from 93.4%: at that zoom the sun filled the frame and the towers were cropped hard
@@ -204,7 +220,9 @@ window.__B="1784598974";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
        more of it fits. The POSITION must move with the zoom or the horizon drifts off the game's horizon and
        you get a double floor: for zoom Z, pos = (0.5 - 0.535*Z) / (1 - Z) — that keeps the art's horizon
        welded to H/2 at any zoom. The slack lands as sky at the top, filled by background-color. */
-    background-size: auto calc(62% * var(--cityZ, 1)); background-position: center calc(var(--arcHz, 44.3%) + var(--arcHzDrop, 0px)); background-color: #170334;
+    background-size: auto calc(62% * var(--cityZ, 1)); background-position: center calc(var(--arcHz, 44.3%) + var(--arcHzDrop, 0px)); background-color: transparent;
+    /* background-color WAS #170334 (flat) — the slack sky above/around the pulled-back art read as a plain block
+       ("sky not fully galaxy"). Now transparent, so the full-sky GALAXY (nebula on #overlay + .mStars) shows through. */
     background-repeat: no-repeat;       /* or the art TILES and its grid floor repeats into the sky above */
   }
   @media (orientation: landscape) {
