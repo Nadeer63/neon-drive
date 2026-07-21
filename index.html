@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784652859";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784653453";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -942,6 +942,8 @@ window.__B="1784652859";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"
   <label style="display:block;margin:6px 0;color:#8ff">🚗 CLOSE CARS (opacity) <b id="camVCn"></b><input id="camSCn" type="range" min="0" max="1" step="0.05" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">🚗 MID CARS (opacity) <b id="camVCm"></b><input id="camSCm" type="range" min="0" max="1" step="0.05" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">🚗 FAR CARS (opacity, at the horizon) <b id="camVCf"></b><input id="camSCf" type="range" min="0" max="1" step="0.05" style="width:100%"></label>
+  <label style="display:block;margin:6px 0;color:#8ff">📏 CAR SIZE <b id="camVCsz"></b><input id="camSCsz" type="range" min="0.4" max="2.2" step="0.05" style="width:100%"></label>
+  <label style="display:block;margin:6px 0;color:#8ff">↕️ CAR HEIGHT (+ up / − sink) <b id="camVClf"></b><input id="camSClf" type="range" min="-0.3" max="0.3" step="0.01" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">🌫️ CARS FADE-OUT (high = dissolve sooner/softer at the dash) <b id="camVFade"></b><input id="camSFade" type="range" min="0.30" max="5.00" step="0.10" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">🛣️ ROAD RENDER (high = road reaches farther out) <b id="camVRoad"></b><input id="camSRoad" type="range" min="0.40" max="4.00" step="0.05" style="width:100%"></label>
   <label style="display:block;margin:6px 0;color:#8ff">BUTTONS WIDTH <b id="camVBs"></b><input id="camSBs" type="range" min="70" max="320" step="4" style="width:100%"></label>
@@ -4777,7 +4779,7 @@ function drawCar(car, b, fog, clipY, front, fade, bf){
     // One car scale in every mode. The projection is already identical (CAM_DEPTH / CAM_H / CAM_MUL /
     // camPitch have no arcade branch), so arcade's old 0.82 wasn't a camera difference — it just drew the
     // same world smaller, which is what made arcade read as zoomed-out next to DRIVE.
-    const CARW = (typeof window.__carW === 'number' ? window.__carW : 1.0) * CAR_SIZE_F;   // CAR_SIZE_F = live tuner's traffic scale
+    const CARW = (typeof window.__carW === 'number' ? window.__carW : 1.0) * CAR_SIZE_F * ((window.__mob && typeof window.__mob.carsize === 'number') ? window.__mob.carsize : 1);   // CAR SIZE slider
     const scale = swE * CARW / refW;                       // uniform scale across angles (like the garage), grows with nearness (FOV-locked via swE)
     const SQ = (typeof window.__carSq === 'number' ? window.__carSq : 1.0);        // vertical squash (1.0 = none; low render angle means it's not needed)
     let dw = frame.naturalWidth * scale, dh = frame.naturalHeight * scale * SQ;
@@ -4803,7 +4805,7 @@ function drawCar(car, b, fog, clipY, front, fade, bf){
     if (gf == null || typeof window.__carDrop === 'number') gf = (typeof window.__carDrop === 'number' ? window.__carDrop : 0.09);
     // LIFT the car a touch: the projected contact line (syE) sits a hair BELOW the visible neon grid road, so cars
     // read as sunk into the road. Raise the wheels by a small fraction of the car height onto the grid. Tunable.
-    const _lift = (typeof window.__carLift === 'number' ? window.__carLift : 0);   // 0 = sit at the true projected contact (the float was the grid-horizon cull, now fixed — not a lift issue)
+    const _lift = (typeof window.__carLift === 'number' ? window.__carLift : ((window.__mob && typeof window.__mob.carlift === 'number') ? window.__mob.carlift : 0));   // CAR HEIGHT slider: + lifts cars up off the road, - sinks them
     const drop = dh * (gf - _lift);
     const carBottom = bottom + drop;
     const shy = carBottom;                                 // centred right on the contact line (ARCADE grid line sits here)
@@ -8074,6 +8076,8 @@ requestAnimationFrame(frame);
   const cnS = document.getElementById('camSCn'), cnV = document.getElementById('camVCn');   // CLOSE car opacity
   const cmS = document.getElementById('camSCm'), cmV = document.getElementById('camVCm');   // MID car opacity
   const cfS = document.getElementById('camSCf'), cfV = document.getElementById('camVCf');   // FAR car opacity
+  const cszS = document.getElementById('camSCsz'), cszV = document.getElementById('camVCsz');   // CAR SIZE
+  const clfS = document.getElementById('camSClf'), clfV = document.getElementById('camVClf');   // CAR HEIGHT (lift)
   const fadeS = document.getElementById('camSFade'), fadeV = document.getElementById('camVFade');   // CARS fade-OUT stretch at the dash
   const roadS = document.getElementById('camSRoad'), roadV = document.getElementById('camVRoad');   // ROAD render distance (grid FADE_ROWS)
   const RS_DEF = (('ontouchstart' in window) || navigator.maxTouchPoints > 0) ? 0.8 : Math.min(window.devicePixelRatio || 1, 1.5);
@@ -8082,7 +8086,7 @@ requestAnimationFrame(frame);
   // which for anyone who saved before a field existed is missing it). A missing bh -> "--btnH: undefinedpx",
   // which is invalid CSS -> the button height collapsed to content (the "can't change the height" bug).
   function mobDefaults(m){
-    if (m.res == null) m.res = 0; if (m.tall == null) m.tall = 1; if (m.city == null) m.city = 1; if (m.carnear == null) m.carnear = 1; if (m.carmid == null) m.carmid = 0.6; if (m.carfar == null) m.carfar = 0; if (m.carfadeout == null) m.carfadeout = 1; if (m.roadfade == null) m.roadfade = 1;
+    if (m.res == null) m.res = 0; if (m.tall == null) m.tall = 1; if (m.city == null) m.city = 1; if (m.carnear == null) m.carnear = 1; if (m.carmid == null) m.carmid = 0.6; if (m.carfar == null) m.carfar = 0; if (m.carsize == null) m.carsize = 1; if (m.carlift == null) m.carlift = 0; if (m.carfadeout == null) m.carfadeout = 1; if (m.roadfade == null) m.roadfade = 1;
     // RESOLUTION-INDEPENDENT sizing: store button width/height/gap as a FRACTION of the screen WIDTH and the
     // up/down offset as a fraction of the HEIGHT, so ONE setting looks the same on every phone size — no per-
     // device tuning. Migrate legacy pixel values ONCE (a value >3 is still px; convert against a ~400px ref).
@@ -8109,7 +8113,7 @@ requestAnimationFrame(frame);
     const W = innerWidth || 400, H = innerHeight || 850;               // sliders show px FOR THE CURRENT screen (stored as fractions underneath)
     resS.value = m.res > 0 ? m.res : 0.25;   // 0.25 = the slider's leftmost "AUTO" stop (min); a real lock is >=0.30
     bsS.value = Math.round(m.bs * W); bhS.value = Math.round(m.bh * W); bgS.value = Math.round(m.bg * W); byS.value = Math.round(m.by * W);
-    tallS.value = m.tall; cityS.value = m.city; cnS.value = m.carnear; cmS.value = m.carmid; cfS.value = m.carfar; fadeS.value = m.carfadeout; roadS.value = m.roadfade;
+    tallS.value = m.tall; cityS.value = m.city; cnS.value = m.carnear; cmS.value = m.carmid; cfS.value = m.carfar; cszS.value = m.carsize; clfS.value = m.carlift; fadeS.value = m.carfadeout; roadS.value = m.roadfade;
     const eff = m.res > 0 ? m.res : RS_DEF;
     const bx = window.__box || { w: innerWidth, h: innerHeight };
     resV.textContent = (m.res > 0 ? m.res.toFixed(2) + '×' : 'AUTO') + '  (' + Math.round(bx.w * eff) + '×' + Math.round(bx.h * eff) + ')';
@@ -8117,6 +8121,7 @@ requestAnimationFrame(frame);
     tallV.textContent = (+m.tall).toFixed(2) + '×  (' + Math.round(bx.h) + 'px)';
     cityV.textContent = (+m.city).toFixed(2) + '×' + (m.city > 1 ? ' (closer)' : m.city < 1 ? ' (farther)' : '');
     cnV.textContent = (+m.carnear).toFixed(2); cmV.textContent = (+m.carmid).toFixed(2); cfV.textContent = (+m.carfar).toFixed(2);
+    cszV.textContent = (+m.carsize).toFixed(2) + '×'; clfV.textContent = (m.carlift > 0 ? '+' : '') + (+m.carlift).toFixed(2);
     fadeV.textContent = (+m.carfadeout).toFixed(2) + '×' + (m.carfadeout >= 2 ? ' (soft)' : m.carfadeout <= 0.5 ? ' (sharp)' : '');
     roadV.textContent = (+m.roadfade).toFixed(2) + '×' + (m.roadfade >= 2 ? ' (far)' : m.roadfade <= 0.7 ? ' (short)' : '');
   }
@@ -8124,10 +8129,10 @@ requestAnimationFrame(frame);
     const W = innerWidth || 400, H = innerHeight || 850;
     const res = +resS.value < 0.30 ? 0 : +resS.value;   // leftmost stop = AUTO (0), so nudging other sliders can't accidentally lock a low resolution
     // store as FRACTIONS of the live screen so the SAME look transfers to any phone size
-    window.__mob = { res, bs: +bsS.value / W, bh: +bhS.value / W, bg: +bgS.value / W, by: +byS.value / W, tall: +tallS.value, city: +cityS.value, carnear: +cnS.value, carmid: +cmS.value, carfar: +cfS.value, carfadeout: +fadeS.value, roadfade: +roadS.value, rel: 2 };
+    window.__mob = { res, bs: +bsS.value / W, bh: +bhS.value / W, bg: +bgS.value / W, by: +byS.value / W, tall: +tallS.value, city: +cityS.value, carnear: +cnS.value, carmid: +cmS.value, carfar: +cfS.value, carsize: +cszS.value, carlift: +clfS.value, carfadeout: +fadeS.value, roadfade: +roadS.value, rel: 2 };
     applyMob(); syncMob(); broadcast();
   }
-  [resS, bsS, bhS, bgS, byS, tallS, cityS, cnS, cmS, cfS, fadeS, roadS].forEach(s => { s.addEventListener('input', pushMob); s.addEventListener('change', pushMob); });
+  [resS, bsS, bhS, bgS, byS, tallS, cityS, cnS, cmS, cfS, cszS, clfS, fadeS, roadS].forEach(s => { s.addEventListener('input', pushMob); s.addEventListener('change', pushMob); });
   // FIELD OF VIEW is shown on the game's own 0-100 scale (0 = tightest/most zoomed, 100 = widest), not as the
   // raw projection depth. Same mapping the settings slider always used: CAM_DEPTH = 1.2 - fov/100*0.7.
   const depthOf = fov => 1.2 - (fov / 100) * 0.7;
