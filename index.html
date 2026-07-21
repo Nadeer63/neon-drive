@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784590585";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784593546";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1988,6 +1988,7 @@ function update(dt) {
   speed = Math.max(parked ? -MAX_SPEED * 0.6 : 0, Math.min(parked ? FREE_MAX : playerMax, speed));
   braking = !gas && speed > target + 5;              // off the gas / braking -> brake lights
 
+  const _prevPos = position;   // for SWEPT collision: at high speed / a dropped mobile frame, position can jump past a car in one step
   position += speed * dt;
   distance += speed * dt;
   // ramp: the road itself rises under you (rampRise/hillAt) so it feels like driving up a hill;
@@ -2027,7 +2028,13 @@ function update(dt) {
   for (const c of traffic) {
     // contact check runs even when FROZEN (M) so touching a car flashes red; otherwise it ends the run
     // (skipped entirely while the road is cleared at a milestone)
-    if (trafficClear <= 0 && !(trafficThin > 0 && c.__hide) && !c.ramp && Math.abs(c.z - position) < 400 * HITBOX_F && Math.abs(c.x - playerX) < 0.34 * HITBOX_F && playerY < 650) {
+    // SWEPT along-road test: fire if the player's travel THIS frame [_prevPos..position] passed through the car's
+    // body span, not just if we happen to land inside it. The old point test (|c.z - position| < 400) missed
+    // ("tunnelled") when a fast pass — or a laggy mobile frame with a big dt — jumped more than the span in one step.
+    const _halfLen = 400 * HITBOX_F;
+    const _pLo = Math.min(_prevPos, position), _pHi = Math.max(_prevPos, position);
+    const _sweptHit = _pHi >= c.z - _halfLen && _pLo <= c.z + _halfLen;
+    if (trafficClear <= 0 && !(trafficThin > 0 && c.__hide) && !c.ramp && _sweptHit && Math.abs(c.x - playerX) < 0.34 * HITBOX_F && playerY < 650) {
       crash();
       if (!parked && !dbgNoCrash) return;
     }
@@ -4651,9 +4658,11 @@ function drawCar(car, b, fog, clipY, front, fade, bf){
       _ref.__cs = (_ref.__cs == null) ? s : _ref.__cs + (s - _ref.__cs) * 0.16;
       s = _ref.__cs;
       s = Math.max(-lim, Math.min(lim, s));
-      // snap the traffic angle to coarser steps -> far fewer DISTINCT frames get tinted (rear + a slight
-      // tilt kept). __trafStep = frames-per-step (4 ≈ every 4°). Set to 1 for the old fine rotation.
-      const TS = (typeof window.__trafStep === 'number' ? window.__trafStep : 1);
+      // snap the traffic angle to coarser steps -> far fewer DISTINCT frames get tinted (rear + a slight tilt kept).
+      // __trafStep = frames-per-step. DEFAULT 3 (was 1): at 1, weaving/steering swung the viewing angle enough to
+      // change the rear frame ~20×/sec (the "back of the car flickers"); at 3 that drops to ~1×/sec (measured) with
+      // the side-reveal preserved. Combined with the low-pass + hysteresis above, traffic rears hold steady.
+      const TS = (typeof window.__trafStep === 'number' ? window.__trafStep : 3);
       // HYSTERESIS (sticky frame): plain round() dithers between two frames when the angle sits on a boundary
       // (s ≈ x.5) — that's the rear-of-car flicker. Keep the current frame until the angle moves WELL past the
       // midpoint (>0.62 of a step) before switching, so a car parked on a boundary holds one frame instead of
