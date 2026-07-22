@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784690905";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784691490";(function(){try{fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1271,11 +1271,14 @@ function resize() {
   _rs.setProperty('--gBoxBot', (by0 + bh) + 'px');   // bottom edge of the game box from the viewport top — the steer buttons anchor HERE (not the viewport bottom), so they land identically in Safari and the home-screen PWA
   window.__box = { x: bx0, y: by0, w: bw, h: bh, on: boxed };
   W = bw; H = bh;
-  PW = Math.min(W, H * 1.8);   // never let the horizontal field stretch wider than ~1.8:1 (stops landscape-phone over-zoom)
-  // Vertical projection scale. In portrait H is tall, giving a dramatic ~2x vertical exaggeration
-  // (tall buildings, high traffic lights). Boost the vertical scale on wide screens so the framing
-  // stays dramatic and consistent with portrait. (Horizon stays at H/2; only the spread changes.)
-  PH = Math.max(H, PW * 0.92);
+  // Vertical projection scale is normally derived from H — but GAME HEIGHT (tall) inflates H, and in play mode the
+  // WHOLE scene is canvas-drawn, so a bigger PH stretched everything vertically (the sun became an oval, cars/road
+  // elongated, dash sank). Arcade doesn't show this because its sky/sun/city is a uniformly-scaled CSS backdrop.
+  // FIX: in the boxed portrait view, base PW/PH on the SQUARE (tall=1) height, so raising GAME HEIGHT reveals MORE
+  // sky/road at a CONSISTENT scale (circles stay circles) instead of exaggerating it — matching the arcade feel.
+  const _projH = boxed ? Math.round(bw * 341 / 338) : H;   // tall=1 height when boxed; real height otherwise
+  PW = Math.min(W, _projH * 1.8);   // never let the horizontal field stretch wider than ~1.8:1 (stops landscape-phone over-zoom)
+  PH = Math.max(_projH, PW * 0.92);
   // PW is capped at W, and portrait is only ~393px wide against landscape's ~932 — so at the SAME field of
   // view a portrait phone sees a narrow slice: the road is thin and the traffic is tiny, while the full
   // camera height shows a lot of ground, which reads as "the camera is too high".
