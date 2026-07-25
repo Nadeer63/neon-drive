@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1784939882";(function(){try{if(window.caches&&caches.keys)caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});}).catch(function(){});fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);sp.set("_u",Date.now());location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1784940050";(function(){try{if(window.caches&&caches.keys)caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});}).catch(function(){});fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);sp.set("_u",Date.now());location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -4848,17 +4848,21 @@ function drawCar(car, b, fog, clipY, front, fade, bf){
     const base = front ? (N >> 1) : 0;                     // rear (traffic) or front (oncoming)
     const dir  = front ? -1 : 1;
     let sstep = 0;                                         // turntable step from the viewing angle
-    if (car.dist != null && !parked) {                     // frozen (M): keep cars dead-rear so they stand still (no lean/tilt as you drive up)
+    if (car.dist != null) {
       // angle from the camera to the car (0 dead-ahead -> ±90° beside), DAMPENED + tightly clamped
       // so steering only reveals a BIT of side. Fractional so we blend the two nearest frames.
       const ANGK = (typeof window.__carAng === 'number' ? window.__carAng : 0.8);   // side-reveal sensitivity: cars clearly angle toward you as you steer (frames kept up to ~26°). tune live.
-      const va = Math.atan2((car.x - playerX) * ROAD_W, Math.max(40, car.dist));
       const maxSide = (typeof window.__carLim === 'number' ? window.__carLim : 26);   // max side DEGREES shown. tune live.
       const lim = Math.max(1, maxSide / (360 / N));
-      let s = va / (2 * Math.PI) * N * ANGK;
-      // IMMEDIATE steering reaction: swing the cars extra WHILE you're actively turning (based on your lateral velocity
-      // playerVX), so even the car dead-ahead in YOUR lane visibly banks as you go left/right — not just the cars that
-      // already sit in another lane. Falls back to 0 when you're going straight. Tunable.
+      let s = 0;
+      if (!parked) {
+        // dist-based side-reveal ONLY when not frozen — otherwise cars swing around as you drive UP to a parked car.
+        const va = Math.atan2((car.x - playerX) * ROAD_W, Math.max(40, car.dist));
+        s = va / (2 * Math.PI) * N * ANGK;
+      }
+      // IMMEDIATE steering reaction: swing the cars WHILE you're actively turning (based on your lateral velocity
+      // playerVX) — applies EVEN when parked (M free-drive), so the frozen cars visibly tilt left/right as you steer
+      // past them instead of holding one dead-rear angle. Falls back to 0 when going straight. Tunable.
       s -= playerVX * (typeof window.__carLean === 'number' ? window.__carLean : 3.2);
       // SMOOTH the angle per car. `playerX` jitters a little every frame (auto-drive/physics micro-corrections),
       // which made the rounded frame flip between two neighbours each render — the "back of the car flickers" on
