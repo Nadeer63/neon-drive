@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <script>/* auto-update: if a newer build is live, reload once (beats the ~10min GitHub Pages HTML cache) */
-window.__B="1785077946";(function(){try{if(window.caches&&caches.keys)caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});}).catch(function(){});fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);sp.set("_u",Date.now());location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
+window.__B="1785079186";(function(){try{if(window.caches&&caches.keys)caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});}).catch(function(){});fetch("build.txt?_="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null;}).then(function(v){if(!v)return;v=(""+v).trim();if(v&&v!==window.__B&&!sessionStorage.getItem("nb"+v)){sessionStorage.setItem("nb"+v,"1");var sp=new URLSearchParams(location.search);sp.set("b",v);sp.set("_u",Date.now());location.replace(location.pathname+"?"+sp.toString());}}).catch(function(){});}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1568,7 +1568,7 @@ const keys = {};
 const LANE_LIMIT = 0.86;      // car cannot steer beyond the outer lane edges
 
 const LANES3 = [-0.62, 0, 0.62];              // 3 lane centres — cruise / city driving
-const LANES4 = [-0.6, -0.2, 0.2, 0.6];        // 4 lane centres — ARCADE. Pulled IN from ±0.75: the outer lanes put the car BODY (it has width) onto the blue side-grid; ±0.6 keeps every car fully on the PINK road.
+const LANES4 = [-0.3, -0.1, 0.1, 0.3];        // 4 lane centres — ARCADE. Pulled WAY IN from ±0.75: the visible pink road is a narrowish central strip (its grid lines fade toward the horizon), so only tight lanes keep every car ON the pink; wider spreads land cars on the blue side-grid. Verified against the drawn pink band.
 let LANES = LANES3;                            // ACTIVE lane set; switched by gameMode when traffic spawns
 // dashed lane-divider offsets = midpoints between adjacent lane centres (3-lane: ±0.31, 4-lane: -0.5/0/0.5)
 function laneDividers() { return (gameMode === 'arcade') ? [-0.5, 0, 0.5] : [-0.31, 0.31]; }
@@ -2928,11 +2928,13 @@ function render() {
     //      road slid right off screen and you appeared to drive on the bare cyan ground.
     //   2. traffic cars (drawn from the real projection) sat OUTSIDE the pink band near the camera.
     // Deriving it from np.sw makes the grid road exactly the drivable road, so both go away.
-    // WIDEN the pink road: the drivable width is np.sw (car.x ±1.0), but a car sprite has body-width and the far
-    // pink band narrows to a sliver, so cars read as sitting on the blue side-grid. Fatten the pink wedge by __pinkW
-    // so the whole car body lands on pink. Purely visual (cyan = "outside road" shrinks to match). Live-tunable.
-    const rwNear = np.sw * (typeof window.__pinkW === 'number' ? window.__pinkW : 1.32);   // road half-width at the near edge
+    const rwNear = np.sw * (typeof window.__pinkW === 'number' ? window.__pinkW : 1.0);   // road half-width at the near edge (tunable)
     const span = by - vy;
+    // EXPOSE the drawn pink-road geometry so traffic can be planted on the ACTUAL pink road. The grid road is a
+    // straight screen-space wedge (vanishing point (vx,vy) -> near edges bx±rwNear at y=by). Traffic was positioned by
+    // its OWN projection (car.x * b.sw), which is a DIFFERENT scale than this wedge — so cars drifted onto the blue
+    // side-grid no matter how wide the pink got. drawCar (arcade) now maps car.x onto THIS wedge instead. See there.
+    window.__arcRoad = { vx: vx, vy: vy, bx: bx, rw: rwNear, by: by };
 
     // HORIZON MASK (arcade): the backdrop city has a baked PINK glow right at its base. It sits just above the
     // canvas horizon, so it reads as a bright pink horizontal line "floating" above the road. Cover a short band
@@ -3232,9 +3234,10 @@ function render() {
     ctx.beginPath(); roadWedgeHilly(); ctx.clip();
     // REFLECTION: tint the dark road cells with the grid's pink — like the neon reflecting off the tarmac.
     // Fades from nothing at the horizon to a soft glow near the camera. Flat wash, so no glow on it.
+    const _rfa = (typeof window.__roadFillA === 'number' ? window.__roadFillA : 0.13);   // road-surface pink wash (subtle by default)
     const roadRefl = ctx.createLinearGradient(0, vy, 0, by);
     roadRefl.addColorStop(0, 'rgba(255,134,214,0)');
-    roadRefl.addColorStop(1, 'rgba(255,134,214,0.13)');
+    roadRefl.addColorStop(1, `rgba(255,134,214,${_rfa.toFixed(3)})`);
     ctx.shadowBlur = 0; ctx.fillStyle = roadRefl; ctx.fillRect(0, vy, W, by - vy);
     ctx.restore();
     ctx.save();                                              // ROAD columns (pink) — clipped to an INSET wedge so the
@@ -4831,7 +4834,15 @@ function drawCar(car, b, fog, clipY, front, fade, bf){
   // looked "stuck in the middle" as you steered to the edge. (At the shipped FOV kFov=1, so this is identical there.)
   const sxE = b.sx;                                // lane centre — tracks the road
   const syE = b.sy;                                // road depth / contact line — tracks the road
-  const cx = sxE + car.x * b.sw + TRAFFIC_DX;      // lane offset uses the ACTUAL half-width so cars stay glued to their lane
+  let cx = sxE + car.x * b.sw + TRAFFIC_DX;        // lane offset uses the ACTUAL half-width so cars stay glued to their lane
+  // ARCADE: the pink neon-grid road is drawn as a straight screen-space wedge whose scale differs from the car's own
+  // projection, so `car.x * b.sw` landed cars out on the blue side-grid. Instead, plant the car ON the drawn pink road:
+  // interpolate the wedge at the car's contact line (syE) and put car.x at that fraction of the pink half-width. This
+  // guarantees a car at car.x=±1 sits exactly on the pink edge, and it pans/leans WITH the road as you steer.
+  if (gameMode === 'arcade' && window.__arcRoad) {
+    const R = window.__arcRoad, t = Math.max(0, Math.min(1.4, (syE - R.vy) / (R.by - R.vy)));
+    cx = (R.vx + (R.bx - R.vx) * t) + car.x * R.rw * t + TRAFFIC_DX;
+  }
   const w = swE * 0.46 * CAR_SIZE_F * (gameMode === 'arcade' ? 0.72 : 1);   // overall width (0.46 keeps it under the lane
                                          // gap so neighbours don't merge; CAR_SIZE_F = live tuner's scale, 1 = stock).
                                          // Arcade cars read too big on the short neon-grid road, so scale them down.
